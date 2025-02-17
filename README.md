@@ -25,7 +25,7 @@ https://afdian.com/a/manong
 
 
 
-keytool -genkey -alias demokeystore -keyalg RSA -keysize 1024 -keypass 123456789 -validity 3500 -keystore .\demokeystore.jks
+keytool -genkey -alias demokeystore -keyalg RSA -keysize 1024 -keypass 2024XYZ -validity 3500 -keystore .\demokeystore.jks
 
 
 
