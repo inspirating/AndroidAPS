@@ -47,6 +47,8 @@ files:
     translation: /pump/danar/src/main/res/values-%android_code%/strings.xml
   - source: /pump/danars/src/main/res/values/strings.xml
     translation: /pump/danars/src/main/res/values-%android_code%/strings.xml
+  - source: /pump/danapen/src/main/res/values/strings.xml
+    translation: /pump/danapen/src/main/res/values-%android_code%/strings.xml
   - source: /pump/diaconn/src/main/res/values/strings.xml
     translation: /pump/diaconn/src/main/res/values-%android_code%/strings.xml
   - source: /pump/eopatch/src/main/res/values/strings.xml
