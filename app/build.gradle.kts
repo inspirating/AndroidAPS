@@ -238,6 +238,7 @@ dependencies {
     implementation(project(":pump:combov2"))
     implementation(project(":pump:dana"))
     implementation(project(":pump:danars"))
+    implementation(project(":pump:danapen"))
     implementation(project(":pump:danar"))
     implementation(project(":pump:diaconn"))
     implementation(project(":pump:eopatch"))

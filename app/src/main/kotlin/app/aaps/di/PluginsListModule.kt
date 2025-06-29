@@ -58,6 +58,7 @@ import app.aaps.plugins.sync.xdrip.XdripPlugin
 import app.aaps.pump.danar.DanaRPlugin
 import app.aaps.pump.danarkorean.DanaRKoreanPlugin
 import app.aaps.pump.danars.DanaRSPlugin
+import app.aaps.pump.danapen.DanaPENPlugin
 import app.aaps.pump.danarv2.DanaRv2Plugin
 import app.aaps.pump.diaconn.DiaconnG8Plugin
 import app.aaps.pump.eopatch.EopatchPumpPlugin

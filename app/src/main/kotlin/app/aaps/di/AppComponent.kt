@@ -20,6 +20,7 @@ import app.aaps.pump.dana.di.DanaHistoryModule
 import app.aaps.pump.dana.di.DanaModule
 import app.aaps.pump.danar.di.DanaRModule
 import app.aaps.pump.danars.di.DanaRSModule
+import app.aaps.pump.danapen.di.DanaPENModule
 import app.aaps.pump.diaconn.di.DiaconnG8Module
 import app.aaps.pump.eopatch.di.EopatchModule
 import app.aaps.pump.equil.di.EquilModule
@@ -77,6 +78,8 @@ import javax.inject.Singleton
         DanaModule::class,
         DanaRModule::class,
         DanaRSModule::class,
+        DanaPENModule::class,
+
         DiaconnG8Module::class,
         EopatchModule::class,
         InsightModule::class,
