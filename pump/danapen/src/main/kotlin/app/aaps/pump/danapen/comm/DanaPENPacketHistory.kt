@@ -4,7 +4,7 @@ import app.aaps.core.data.time.T
 import app.aaps.core.interfaces.logging.LTag
 import app.aaps.core.interfaces.pump.PumpSync
 import app.aaps.core.interfaces.rx.bus.RxBus
-import app.aaps.core.interfaces.rx.events.EventDanaPENyncStatus
+import app.aaps.core.interfaces.rx.events.EventDanaRSyncStatus
 import app.aaps.pump.dana.DanaPump
 import app.aaps.pump.dana.comm.RecordTypes
 import app.aaps.pump.dana.database.DanaHistoryRecord
@@ -237,7 +237,7 @@ abstract class DanaPENPacketHistory(
                     danaPump.serialNumber
                 )
             }
-            rxBus.send(EventDanaPENyncStatus(dateUtil.dateAndTimeString(danaRHistoryRecord.timestamp) + " " + messageType))
+            rxBus.send(EventDanaRSyncStatus(dateUtil.dateAndTimeString(danaRHistoryRecord.timestamp) + " " + messageType))
         }
     }
 

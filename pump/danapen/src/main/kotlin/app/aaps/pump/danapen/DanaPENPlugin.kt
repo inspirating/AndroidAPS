@@ -106,9 +106,9 @@ class DanaPENPlugin @Inject constructor(
         .mainType(PluginType.PUMP)
         .fragmentClass(DanaFragment::class.java.name)
         .pluginIcon(app.aaps.core.ui.R.drawable.ic_danai_128)
-        .pluginIcon2(app.aaps.core.ui.R.drawable.ic_danapen_128)
-        .pluginName(app.aaps.pump.dana.R.string.danapenpump)
-        .shortName(app.aaps.pump.dana.R.string.danapenpump_shortname)
+        .pluginIcon2(app.aaps.core.ui.R.drawable.ic_danars_128)
+        .pluginName(app.aaps.pump.dana.R.string.danarspump)
+        .shortName(app.aaps.pump.dana.R.string.danarspump_shortname)
         .preferencesId(PluginDescription.PREFERENCE_SCREEN)
         .description(app.aaps.pump.dana.R.string.description_pump_dana_rs),
     aapsLogger, rh, commandQueue
@@ -135,8 +135,8 @@ class DanaPENPlugin @Inject constructor(
     override fun updatePreferenceSummary(pref: Preference) {
         super.updatePreferenceSummary(pref)
 
-        if (pref.key == DanaStringKey.DanaPenName.key) {
-            val value = preferences.getIfExists(DanaStringKey.DanaPenName)
+        if (pref.key == DanaStringKey.DanaRsName.key) {
+            val value = preferences.getIfExists(DanaStringKey.DanaRsName)
             pref.summary = value ?: rh.gs(app.aaps.core.ui.R.string.not_set_short)
         }
     }
@@ -184,8 +184,8 @@ class DanaPENPlugin @Inject constructor(
 
     fun changePump() {
         mDeviceAddress = preferences.get(DanaStringKey.DanaMacAddress)
-        mDeviceName = preferences.get(DanaStringKey.DanaPenName)
-        danaPump.serialNumber = preferences.get(DanaStringKey.DanaPenName)
+        mDeviceName = preferences.get(DanaStringKey.DanaRsName)
+        danaPump.serialNumber = preferences.get(DanaStringKey.DanaRsName)
         danaPump.reset()
         commandQueue.readStatus(rh.gs(app.aaps.core.ui.R.string.device_changed), null)
     }
@@ -665,11 +665,11 @@ class DanaPENPlugin @Inject constructor(
     override fun canHandleDST(): Boolean = false
     override fun clearPairing() {
         aapsLogger.debug(LTag.PUMPCOMM, "Pairing keys cleared")
-        preferences.remove(DanaString2Key.DanaPenParingKey, mDeviceName)
-        preferences.remove(DanaString2Key.DanaPenV3RandomParingKey, mDeviceName)
-        preferences.remove(DanaString2Key.DanaPenV3ParingKey, mDeviceName)
-        preferences.remove(DanaString2Key.DanaPenV3RandomSyncKey, mDeviceName)
-        preferences.remove(DanaString2Key.DanaPenBle5PairingKey, mDeviceName)
+        preferences.remove(DanaString2Key.DanaRsParingKey, mDeviceName)
+        preferences.remove(DanaString2Key.DanaRsV3RandomParingKey, mDeviceName)
+        preferences.remove(DanaString2Key.DanaRsV3ParingKey, mDeviceName)
+        preferences.remove(DanaString2Key.DanaRsV3RandomSyncKey, mDeviceName)
+        preferences.remove(DanaString2Key.DanaRsBle5PairingKey, mDeviceName)
     }
 
     override fun clearAllTables() = danaHistoryDatabase.clearAllTables()
@@ -684,17 +684,17 @@ class DanaPENPlugin @Inject constructor(
         parent.addPreference(category)
         category.apply {
             key = "danapen_settings"
-            title = rh.gs(app.aaps.pump.dana.R.string.danapenpump)
+            title = rh.gs(app.aaps.pump.dana.R.string.danarspump)
             initialExpandedChildrenCount = 0
             addPreference(
                 AdaptiveIntentPreference(
-                    ctx = context, intentKey = DanaIntentKey.DanaPenBtSelector, title = app.aaps.pump.dana.R.string.selectedpump,
+                    ctx = context, intentKey = DanaIntentKey.DanaRsBtSelector, title = app.aaps.pump.dana.R.string.selectedpump,
                     intent = Intent(context, BLEScanActivity::class.java)
                 )
             )
             addPreference(
                 AdaptiveStringPreference(
-                    ctx = context, stringKey = DanaStringKey.DanaPenPassword, title = app.aaps.pump.dana.R.string.danapen_password_title,
+                    ctx = context, stringKey = DanaStringKey.DanaRsPassword, title = app.aaps.pump.dana.R.string.danars_password_title,
                     validatorParams = DefaultEditTextValidator.Parameters(
                         testType = EditTextValidator.TEST_REGEXP,
                         customRegexp = rh.gs(app.aaps.core.validators.R.string.fourhexanumber),
@@ -712,8 +712,8 @@ class DanaPENPlugin @Inject constructor(
                     entryValues = speedValues
                 )
             )
-            addPreference(AdaptiveSwitchPreference(ctx = context, booleanKey = DanaBooleanKey.DanaPenLogInsulinChange, title = app.aaps.pump.dana.R.string.rs_loginsulinchange_title, summary = app.aaps.pump.dana.R.string.rs_loginsulinchange_summary))
-            addPreference(AdaptiveSwitchPreference(ctx = context, booleanKey = DanaBooleanKey.DanaPenLogCannulaChange, title = app.aaps.pump.dana.R.string.rs_logcanulachange_title, summary = app.aaps.pump.dana.R.string.rs_logcanulachange_summary))
+            addPreference(AdaptiveSwitchPreference(ctx = context, booleanKey = DanaBooleanKey.DanaRsLogInsulinChange, title = app.aaps.pump.dana.R.string.rs_loginsulinchange_title, summary = app.aaps.pump.dana.R.string.rs_loginsulinchange_summary))
+            addPreference(AdaptiveSwitchPreference(ctx = context, booleanKey = DanaBooleanKey.DanaRsLogCannulaChange, title = app.aaps.pump.dana.R.string.rs_logcanulachange_title, summary = app.aaps.pump.dana.R.string.rs_logcanulachange_summary))
         }
     }
 }

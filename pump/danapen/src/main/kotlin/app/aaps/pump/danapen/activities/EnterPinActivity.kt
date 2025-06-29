@@ -89,12 +89,12 @@ class EnterPinActivity : TranslatedDaggerAppCompatActivity() {
         for (i in pairingKey.indices)
             pairingKeyCheckSum = pairingKeyCheckSum xor pairingKey[i]
 
-        preferences.put(DanaString2Key.DanaPenV3ParingKey, danaPENPlugin.mDeviceName, Base64.encodeToString(pairingKey, Base64.DEFAULT))
+        preferences.put(DanaString2Key.DanaRsV3ParingKey, danaPENPlugin.mDeviceName, Base64.encodeToString(pairingKey, Base64.DEFAULT))
 
         for (i in randomPairingKey.indices)
             pairingKeyCheckSum = pairingKeyCheckSum xor randomPairingKey[i]
 
-        preferences.put(DanaString2Key.DanaPenV3RandomParingKey, danaPENPlugin.mDeviceName, Base64.encodeToString(randomPairingKey, Base64.DEFAULT))
+        preferences.put(DanaString2Key.DanaRsV3RandomParingKey, danaPENPlugin.mDeviceName, Base64.encodeToString(randomPairingKey, Base64.DEFAULT))
 
         return checksum[0] == pairingKeyCheckSum
     }

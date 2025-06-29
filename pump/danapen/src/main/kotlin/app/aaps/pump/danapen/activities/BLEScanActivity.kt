@@ -56,7 +56,7 @@ class BLEScanActivity : TranslatedDaggerAppCompatActivity() {
         setContentView(binding.root)
         requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
 
-        title = rh.gs(app.aaps.pump.dana.R.string.danapen_pairing)
+        title = rh.gs(app.aaps.pump.dana.R.string.danars_pairing)
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
         supportActionBar?.setDisplayShowHomeEnabled(true)
 
@@ -150,7 +150,7 @@ class BLEScanActivity : TranslatedDaggerAppCompatActivity() {
 
             override fun onClick(v: View) {
                 preferences.put(DanaStringKey.DanaMacAddress, item.device.address)
-                preferences.put(DanaStringKey.DanaPenName, name.text.toString())
+                preferences.put(DanaStringKey.DanaRsName, name.text.toString())
                 if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S || ActivityCompat.checkSelfPermission(context, Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED) {
                     item.device.createBond()
                     rxBus.send(EventDanaPENDeviceChange())

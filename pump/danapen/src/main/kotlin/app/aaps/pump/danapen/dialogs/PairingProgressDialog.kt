@@ -68,18 +68,18 @@ class PairingProgressDialog : DaggerDialogFragment() {
             for (i in 0..19) {
                 if (pairingEnded) {
                     activity?.runOnUiThread {
-                        _binding?.danapenPairingProgressProgressbar?.progress = 100
-                        _binding?.danapenPairingProgressStatus?.setText(app.aaps.pump.dana.R.string.danapen_pairingok)
+                        _binding?.danarsPairingProgressProgressbar?.progress = 100
+                        _binding?.danarsPairingProgressStatus?.setText(app.aaps.pump.dana.R.string.danars_pairingok)
                         handler.postDelayed({ dismiss() }, 1000)
                     }
                     return@Runnable
                 }
-                _binding?.danapenPairingProgressProgressbar?.progress = i * 5
+                _binding?.danarsPairingProgressProgressbar?.progress = i * 5
                 SystemClock.sleep(1000)
             }
             activity?.runOnUiThread {
-                _binding?.danapenPairingProgressProgressbar?.progress = 100
-                _binding?.danapenPairingProgressStatus?.setText(app.aaps.pump.dana.R.string.danapen_pairingtimedout)
+                _binding?.danarsPairingProgressProgressbar?.progress = 100
+                _binding?.danarsPairingProgressStatus?.setText(app.aaps.pump.dana.R.string.danars_pairingtimedout)
                 _binding?.ok?.visibility = View.VISIBLE
             }
         }
@@ -103,9 +103,9 @@ class PairingProgressDialog : DaggerDialogFragment() {
     }
 
     private fun setViews() {
-        _binding?.danapenPairingProgressProgressbar?.max = 100
-        _binding?.danapenPairingProgressProgressbar?.progress = 0
-        _binding?.danapenPairingProgressStatus?.text = rh.gs(app.aaps.pump.dana.R.string.danapen_waitingforpairing)
+        _binding?.danarsPairingProgressProgressbar?.max = 100
+        _binding?.danarsPairingProgressProgressbar?.progress = 0
+        _binding?.danarsPairingProgressStatus?.text = rh.gs(app.aaps.pump.dana.R.string.danars_waitingforpairing)
         _binding?.ok?.visibility = View.GONE
         _binding?.ok?.setOnClickListener { dismiss() }
         handler.post(runnable)
