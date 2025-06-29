@@ -7,27 +7,27 @@
 
     <application>
         <activity
-            android:name="app.aaps.pump.danars.activities.BLEScanActivity"
+            android:name="app.aaps.pump.danapen.activities.BLEScanActivity"
             android:exported="false"
             android:theme="@style/AppTheme">
             <intent-filter>
-                <action android:name="info.nightscout.pump.danars.activities.BLEScanActivity" />
+                <action android:name="info.nightscout.pump.danapen.activities.BLEScanActivity" />
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>
         <activity
-            android:name="app.aaps.pump.danars.activities.PairingHelperActivity"
+            android:name="app.aaps.pump.danapen.activities.PairingHelperActivity"
             android:exported="false"
             android:theme="@style/AppTheme.NoActionBar"
             android:launchMode="singleTask" />
         <activity
-            android:name="app.aaps.pump.danars.activities.EnterPinActivity"
+            android:name="app.aaps.pump.danapen.activities.EnterPinActivity"
             android:exported="false"
             android:theme="@style/AppTheme.NoActionBar"
             android:launchMode="singleTask" />
 
         <service
-            android:name="app.aaps.pump.danars.services.DanaRSService"
+            android:name="app.aaps.pump.danapen.services.DanaPENService"
             android:enabled="true"
             android:exported="false" />
     </application>

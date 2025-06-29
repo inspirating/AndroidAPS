@@ -8,7 +8,7 @@ plugins {
 }
 
 android {
-    namespace = "app.aaps.pump.danars"
+    namespace = "app.aaps.pump.danapen"
     ndkVersion = Versions.ndkVersion
 
     sourceSets.getByName("main") {
