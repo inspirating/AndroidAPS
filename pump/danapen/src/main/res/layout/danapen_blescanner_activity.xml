@@ -17,7 +17,7 @@
         android:layout_height="wrap_content"
         android:layout_gravity="center"
         android:gravity="center"
-        android:text="@string/danapen_no_device_available"
+        android:text="@string/danars_no_device_available"
         android:textColor="#FF7F8288" />
 
 </LinearLayout>
