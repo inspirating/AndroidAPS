@@ -107,8 +107,8 @@ class DanaPENPlugin @Inject constructor(
         .fragmentClass(DanaFragment::class.java.name)
         .pluginIcon(app.aaps.core.ui.R.drawable.ic_danai_128)
         .pluginIcon2(app.aaps.core.ui.R.drawable.ic_danars_128)
-        .pluginName(app.aaps.pump.dana.R.string.danarspump)
-        .shortName(app.aaps.pump.dana.R.string.danarspump_shortname)
+        .pluginName(app.aaps.pump.dana.R.string.danapenpump)
+        .shortName(app.aaps.pump.dana.R.string.danapenpump_shortname)
         .preferencesId(PluginDescription.PREFERENCE_SCREEN)
         .description(app.aaps.pump.dana.R.string.description_pump_dana_rs),
     aapsLogger, rh, commandQueue
@@ -684,7 +684,7 @@ class DanaPENPlugin @Inject constructor(
         parent.addPreference(category)
         category.apply {
             key = "danapen_settings"
-            title = rh.gs(app.aaps.pump.dana.R.string.danarspump)
+            title = rh.gs(app.aaps.pump.dana.R.string.danapenpump)
             initialExpandedChildrenCount = 0
             addPreference(
                 AdaptiveIntentPreference(

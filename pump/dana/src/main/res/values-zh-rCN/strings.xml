@@ -7,6 +7,8 @@
     <string name="danars_waitingforpairing">等待泵配对</string>
     <string name="danarspump">丹纳-i/RS</string>
     <string name="danarspump_shortname">丹纳泵</string>
+    <string name="danapenpump">丹纳笔-RS</string>
+    <string name="danapenpump_shortname">丹纳笔</string>
     <string name="description_pump_dana_rs">与丹纳-RS或丹纳-i泵集成。</string>
     <string name="maxbolusviolation">超出最大大剂量的限制</string>
     <string name="commanderror">命令错误</string>
