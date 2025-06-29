@@ -16,6 +16,15 @@ android {
     }
 }
 
+android {
+    namespace = "app.aaps.pump.danapen"
+    ndkVersion = Versions.ndkVersion
+
+    sourceSets.getByName("main") {
+        jniLibs.srcDirs("src/main/jniLibs")
+    }
+}
+
 dependencies {
     implementation(project(":core:data"))
     implementation(project(":core:interfaces"))
