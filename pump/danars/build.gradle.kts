@@ -17,7 +17,7 @@ android {
 }
 
 android {
-    namespace = "app.aaps.pump.danapen"
+    namespace = "app.aaps.pump.danars"
     ndkVersion = Versions.ndkVersion
 
     sourceSets.getByName("main") {
