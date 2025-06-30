@@ -9,10 +9,14 @@ plugins {
 
 android {
     namespace = "app.aaps.pump.danapen"
-    ndkVersion = Versions.ndkVersion
+    // ndkVersion = Versions.ndkVersion
+    //
+    // sourceSets.getByName("main") {
+    //     jniLibs.srcDirs("src/main/jniLibs")
+    // }
 
-    sourceSets.getByName("main") {
-        jniLibs.srcDirs("src/main/jniLibs")
+    buildFeatures {
+        dataBinding = true
     }
 }
 

@@ -102,7 +102,7 @@ class DanaPENPlugin @Inject constructor(
     private val decimalFormatter: DecimalFormatter,
     private val instantiator: Instantiator
 ) : PumpPluginBase(
-    PluginDescription()
+        PluginDescription()
         .mainType(PluginType.PUMP)
         .fragmentClass(DanaFragment::class.java.name)
         .pluginIcon(app.aaps.core.ui.R.drawable.ic_danai_128)
