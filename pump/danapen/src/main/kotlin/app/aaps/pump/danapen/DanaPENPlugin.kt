@@ -110,7 +110,7 @@ class DanaPENPlugin @Inject constructor(
         .pluginName(app.aaps.pump.dana.R.string.danapenpump)
         .shortName(app.aaps.pump.dana.R.string.danapenpump_shortname)
         .preferencesId(PluginDescription.PREFERENCE_SCREEN)
-        .description(app.aaps.pump.dana.R.string.description_pump_dana_rs),
+        .description(app.aaps.pump.dana.R.string.description_pump_dana_pen),
     aapsLogger, rh, commandQueue
 ), Pump, Dana, PluginConstraints, OwnDatabasePlugin {
 

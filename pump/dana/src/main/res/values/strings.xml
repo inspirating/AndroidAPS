@@ -11,6 +11,7 @@
     <string name="danapenpump_shortname">Dana Pen</string>
 
     <string name="description_pump_dana_rs">Pump integration for DANA Diabecare RS and Dana-i pumps</string>
+    <string name="description_pump_dana_pen">Pump integration for DANA pen</string>
 
     <string name="maxbolusviolation">Max bolus violation</string>
     <string name="commanderror">Command error</string>
