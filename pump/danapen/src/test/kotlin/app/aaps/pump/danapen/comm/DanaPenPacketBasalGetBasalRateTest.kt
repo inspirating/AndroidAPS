@@ -1,6 +1,7 @@
 package app.aaps.pump.danapen.comm
 
 import app.aaps.pump.danapen.DanaPENTestBase
+import app.aaps.pump.danapen.comm.basal.DanaPENPacketBasalGetBasalRate
 import com.google.common.truth.Truth.assertThat
 import dagger.android.AndroidInjector
 import dagger.android.HasAndroidInjector

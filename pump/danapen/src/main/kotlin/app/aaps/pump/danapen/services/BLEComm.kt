@@ -43,7 +43,7 @@ import app.aaps.pump.danapen.activities.EnterPinActivity
 import app.aaps.pump.danapen.activities.PairingHelperActivity
 import app.aaps.pump.danapen.comm.DanaPENMessageHashTable
 import app.aaps.pump.danapen.comm.DanaPENPacket
-import app.aaps.pump.danapen.comm.DanaPENPacketEtcKeepConnection
+import app.aaps.pump.danapen.comm.ble.keep.DanaPENPacketEtcKeepConnection
 import app.aaps.pump.danapen.encryption.EncryptionType
 import app.aaps.pump.danapen.events.EventDanaPENPairingSuccess
 import dagger.android.HasAndroidInjector

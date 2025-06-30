@@ -4,6 +4,7 @@ import app.aaps.core.interfaces.pump.DetailedBolusInfoStorage
 import app.aaps.core.interfaces.pump.PumpSync
 import app.aaps.core.interfaces.pump.TemporaryBasalStorage
 import app.aaps.pump.danapen.DanaPENTestBase
+import app.aaps.pump.danapen.comm.history.DanaPENPacketAPSHistoryEvents
 import dagger.android.AndroidInjector
 import dagger.android.HasAndroidInjector
 import org.junit.jupiter.api.Assertions
