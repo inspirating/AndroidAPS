@@ -10,7 +10,7 @@ import dagger.android.HasAndroidInjector
 import info.nightscout.androidaps.danapen.encryption.BleEncryption
 import javax.inject.Inject
 
-open class DanaPENPacketBolusSetStepBolusStop(
+open class DanaPENPacketBolusStepBolusSetStop(
     injector: HasAndroidInjector
 ) : DanaPENPacket(injector) {
 

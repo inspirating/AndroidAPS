@@ -2,7 +2,7 @@ package app.aaps.pump.danapen.comm
 
 import app.aaps.core.interfaces.rx.events.EventOverviewBolusProgress
 import app.aaps.pump.danapen.DanaPENTestBase
-import app.aaps.pump.danapen.comm.bolus.DanaPENPacketBolusSetStepBolusStop
+import app.aaps.pump.danapen.comm.bolus.DanaPENPacketBolusStepBolusSetStop
 import dagger.android.AndroidInjector
 import dagger.android.HasAndroidInjector
 import org.junit.jupiter.api.Assertions
@@ -14,7 +14,7 @@ class DanaPenPacketBolusSetStepBolusStopTest : DanaPENTestBase() {
 
     private val packetInjector = HasAndroidInjector {
         AndroidInjector {
-            if (it is DanaPENPacketBolusSetStepBolusStop) {
+            if (it is DanaPENPacketBolusStepBolusSetStop) {
                 it.aapsLogger = aapsLogger
                 it.rxBus = rxBus
                 it.rh = rh
@@ -27,7 +27,7 @@ class DanaPenPacketBolusSetStepBolusStopTest : DanaPENTestBase() {
         `when`(rh.gs(Mockito.anyInt())).thenReturn("SomeString")
 
         danaPump.bolusingTreatment = EventOverviewBolusProgress.Treatment(0.0, 0, true, 0)
-        val testPacket = DanaPENPacketBolusSetStepBolusStop(packetInjector)
+        val testPacket = DanaPENPacketBolusStepBolusSetStop(packetInjector)
         // test message decoding
         testPacket.handleMessage(byteArrayOf(0.toByte(), 0.toByte(), 0.toByte()))
         Assertions.assertEquals(false, testPacket.failed)

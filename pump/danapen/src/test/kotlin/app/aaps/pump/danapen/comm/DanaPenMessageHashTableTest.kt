@@ -4,7 +4,7 @@ import app.aaps.core.interfaces.constraints.ConstraintsChecker
 import app.aaps.core.objects.constraints.ConstraintObject
 import app.aaps.pump.dana.DanaPump
 import app.aaps.pump.danapen.DanaPENTestBase
-import app.aaps.pump.danapen.comm.bolus.DanaPENPacketBolusSetStepBolusStart
+import app.aaps.pump.danapen.comm.bolus.DanaPENPacketBolusStepBolusSetStart
 import app.aaps.pump.danapen.comm.history.DanaPENPacketAPSHistoryEvents
 import app.aaps.pump.danapen.comm.history.DanaPENPacketAPSSetEventHistory
 import dagger.android.AndroidInjector
@@ -25,10 +25,10 @@ class DanaPenMessageHashTableTest : DanaPENTestBase() {
                 it.aapsLogger = aapsLogger
                 it.dateUtil = dateUtil
             }
-            if (it is DanaPENPacketBolusSetStepBolusStart) {
+            if (it is DanaPENPacketBolusStepBolusSetStart) {
                 it.constraintChecker = constraintChecker
             }
-            if (it is DanaPENPacketBolusSetStepBolusStart) {
+            if (it is DanaPENPacketBolusStepBolusSetStart) {
                 it.danaPump = danaPump
             }
             if (it is DanaPENPacketAPSHistoryEvents) {

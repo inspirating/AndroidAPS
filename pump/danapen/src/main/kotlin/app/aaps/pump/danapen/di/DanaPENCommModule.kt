@@ -12,17 +12,17 @@ import app.aaps.pump.danapen.comm.basal.DanaPENPacketBasalProfileNumberSet
 import app.aaps.pump.danapen.comm.basal.DanaPENPacketBasalSetSuspendOff
 import app.aaps.pump.danapen.comm.basal.DanaPENPacketBasalSetSuspendOn
 import app.aaps.pump.danapen.comm.basal.DanaPENPacketBasalTemporaryBasalSet
-import app.aaps.pump.danapen.comm.bolus.DanaPENPacketBolusGet24CIRCFArray
-import app.aaps.pump.danapen.comm.bolus.DanaPENPacketBolusGetBolusOption
+import app.aaps.pump.danapen.comm.bolus.DanaPENPacketBolus24CIRCFArrayGet
+import app.aaps.pump.danapen.comm.bolus.DanaPENPacketBolusBolusOptionGet
 import app.aaps.pump.danapen.comm.bolus.DanaPENPacketBolusGetCIRCFArray
 import app.aaps.pump.danapen.comm.bolus.DanaPENPacketBolusGetCalculationInformation
-import app.aaps.pump.danapen.comm.bolus.DanaPENPacketBolusGetStepBolusInformation
-import app.aaps.pump.danapen.comm.bolus.DanaPENPacketBolusSet24CIRCFArray
-import app.aaps.pump.danapen.comm.bolus.DanaPENPacketBolusSetBolusOption
+import app.aaps.pump.danapen.comm.bolus.DanaPENPacketBolusStepBolusGetInformation
+import app.aaps.pump.danapen.comm.bolus.DanaPENPacketBolus24CIRCFArraySet
+import app.aaps.pump.danapen.comm.bolus.DanaPENPacketBolusBolusOptionSet
 import app.aaps.pump.danapen.comm.bolus.DanaPENPacketBolusSetExtendedBolus
 import app.aaps.pump.danapen.comm.bolus.DanaPENPacketBolusSetExtendedBolusCancel
-import app.aaps.pump.danapen.comm.bolus.DanaPENPacketBolusSetStepBolusStart
-import app.aaps.pump.danapen.comm.bolus.DanaPENPacketBolusSetStepBolusStop
+import app.aaps.pump.danapen.comm.bolus.DanaPENPacketBolusStepBolusSetStart
+import app.aaps.pump.danapen.comm.bolus.DanaPENPacketBolusStepBolusSetStop
 import app.aaps.pump.danapen.comm.ble.keep.DanaPENPacketEtcKeepConnection
 import app.aaps.pump.danapen.comm.ble.keep.DanaPENPacketEtcSetHistorySave
 import app.aaps.pump.danapen.comm.pumpinfo.DanaPENPacketGeneralGetPumpCheck
@@ -72,17 +72,17 @@ abstract class DanaPENCommModule {
     @ContributesAndroidInjector abstract fun contributesDanaPENPacketBasalSetSuspendOff(): DanaPENPacketBasalSetSuspendOff
     @ContributesAndroidInjector abstract fun contributesDanaPENPacketBasalSetSuspendOn(): DanaPENPacketBasalSetSuspendOn
     @ContributesAndroidInjector abstract fun contributesDanaPENPacketBasalSetTemporaryBasal(): DanaPENPacketBasalTemporaryBasalSet
-    @ContributesAndroidInjector abstract fun contributesDanaPENPacketBolusGetBolusOption(): DanaPENPacketBolusGetBolusOption
+    @ContributesAndroidInjector abstract fun contributesDanaPENPacketBolusGetBolusOption(): DanaPENPacketBolusBolusOptionGet
     @ContributesAndroidInjector abstract fun contributesDanaPENPacketBolusGetCalculationInformation(): DanaPENPacketBolusGetCalculationInformation
     @ContributesAndroidInjector abstract fun contributesDanaPENPacketBolusGetCIRCFArray(): DanaPENPacketBolusGetCIRCFArray
-    @ContributesAndroidInjector abstract fun contributesDanaPENPacketBolusGetStepBolusInformation(): DanaPENPacketBolusGetStepBolusInformation
-    @ContributesAndroidInjector abstract fun contributesDanaPENPacketBolusSetBolusOption(): DanaPENPacketBolusSetBolusOption
-    @ContributesAndroidInjector abstract fun contributesDanaPENPacketBolusGet24CIRCFArray(): DanaPENPacketBolusGet24CIRCFArray
-    @ContributesAndroidInjector abstract fun contributesDanaPENPacketBolusSet24CIRCFArray(): DanaPENPacketBolusSet24CIRCFArray
+    @ContributesAndroidInjector abstract fun contributesDanaPENPacketBolusGetStepBolusInformation(): DanaPENPacketBolusStepBolusGetInformation
+    @ContributesAndroidInjector abstract fun contributesDanaPENPacketBolusSetBolusOption(): DanaPENPacketBolusBolusOptionSet
+    @ContributesAndroidInjector abstract fun contributesDanaPENPacketBolusGet24CIRCFArray(): DanaPENPacketBolus24CIRCFArrayGet
+    @ContributesAndroidInjector abstract fun contributesDanaPENPacketBolusSet24CIRCFArray(): DanaPENPacketBolus24CIRCFArraySet
     @ContributesAndroidInjector abstract fun contributesDanaPENPacketBolusSetExtendedBolus(): DanaPENPacketBolusSetExtendedBolus
     @ContributesAndroidInjector abstract fun contributesDanaPENPacketBolusSetExtendedBolusCancel(): DanaPENPacketBolusSetExtendedBolusCancel
-    @ContributesAndroidInjector abstract fun contributesDanaPENPacketBolusSetStepBolusStart(): DanaPENPacketBolusSetStepBolusStart
-    @ContributesAndroidInjector abstract fun contributesDanaPENPacketBolusSetStepBolusStop(): DanaPENPacketBolusSetStepBolusStop
+    @ContributesAndroidInjector abstract fun contributesDanaPENPacketBolusSetStepBolusStart(): DanaPENPacketBolusStepBolusSetStart
+    @ContributesAndroidInjector abstract fun contributesDanaPENPacketBolusSetStepBolusStop(): DanaPENPacketBolusStepBolusSetStop
     @ContributesAndroidInjector abstract fun contributesDanaPENPacketEtcKeepConnection(): DanaPENPacketEtcKeepConnection
     @ContributesAndroidInjector abstract fun contributesDanaPENPacketEtcSetHistorySave(): DanaPENPacketEtcSetHistorySave
     @ContributesAndroidInjector abstract fun contributesDanaPENPacketGeneralInitialScreenInformation(): DanaPENPacketGeneralInitialScreenInformation

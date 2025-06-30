@@ -1,7 +1,7 @@
 package app.aaps.pump.danapen.comm
 
 import app.aaps.pump.danapen.DanaPENTestBase
-import app.aaps.pump.danapen.comm.bolus.DanaPENPacketBolusGetStepBolusInformation
+import app.aaps.pump.danapen.comm.bolus.DanaPENPacketBolusStepBolusGetInformation
 import dagger.android.AndroidInjector
 import dagger.android.HasAndroidInjector
 import org.junit.jupiter.api.Assertions
@@ -16,14 +16,14 @@ class DanaPenPacketBolusGetStepBolusInformationTest : DanaPENTestBase() {
                 it.aapsLogger = aapsLogger
                 it.dateUtil = dateUtil
             }
-            if (it is DanaPENPacketBolusGetStepBolusInformation) {
+            if (it is DanaPENPacketBolusStepBolusGetInformation) {
                 it.danaPump = danaPump
             }
         }
     }
 
     @Test fun runTest() {
-        val packet = DanaPENPacketBolusGetStepBolusInformation(packetInjector)
+        val packet = DanaPENPacketBolusStepBolusGetInformation(packetInjector)
 
         val array = createArray(13, 0.toByte()) // 11 + 2
         putByteToArray(array, 0, 2) // error 2

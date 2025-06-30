@@ -9,7 +9,7 @@ import dagger.android.HasAndroidInjector
 import info.nightscout.androidaps.danapen.encryption.BleEncryption
 import javax.inject.Inject
 
-class DanaPENPacketBolusSetStepBolusStart(
+class DanaPENPacketBolusStepBolusSetStart(
     injector: HasAndroidInjector,
     private var amount: Double = 0.0,
     private var speed: Int = 0

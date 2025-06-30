@@ -49,16 +49,16 @@ import app.aaps.pump.danapen.comm.basal.DanaPENPacketBasalTemporaryBasalSetCance
 import app.aaps.pump.danapen.comm.basal.DanaPENPacketBasalSetProfileBasalRate
 import app.aaps.pump.danapen.comm.basal.DanaPENPacketBasalProfileNumberSet
 import app.aaps.pump.danapen.comm.basal.DanaPENPacketBasalTemporaryBasalSet
-import app.aaps.pump.danapen.comm.bolus.DanaPENPacketBolusGet24CIRCFArray
-import app.aaps.pump.danapen.comm.bolus.DanaPENPacketBolusGetBolusOption
+import app.aaps.pump.danapen.comm.bolus.DanaPENPacketBolus24CIRCFArrayGet
+import app.aaps.pump.danapen.comm.bolus.DanaPENPacketBolusBolusOptionGet
 import app.aaps.pump.danapen.comm.bolus.DanaPENPacketBolusGetCIRCFArray
 import app.aaps.pump.danapen.comm.bolus.DanaPENPacketBolusGetCalculationInformation
-import app.aaps.pump.danapen.comm.bolus.DanaPENPacketBolusGetStepBolusInformation
-import app.aaps.pump.danapen.comm.bolus.DanaPENPacketBolusSet24CIRCFArray
+import app.aaps.pump.danapen.comm.bolus.DanaPENPacketBolusStepBolusGetInformation
+import app.aaps.pump.danapen.comm.bolus.DanaPENPacketBolus24CIRCFArraySet
 import app.aaps.pump.danapen.comm.bolus.DanaPENPacketBolusSetExtendedBolus
 import app.aaps.pump.danapen.comm.bolus.DanaPENPacketBolusSetExtendedBolusCancel
-import app.aaps.pump.danapen.comm.bolus.DanaPENPacketBolusSetStepBolusStart
-import app.aaps.pump.danapen.comm.bolus.DanaPENPacketBolusSetStepBolusStop
+import app.aaps.pump.danapen.comm.bolus.DanaPENPacketBolusStepBolusSetStart
+import app.aaps.pump.danapen.comm.bolus.DanaPENPacketBolusStepBolusSetStop
 import app.aaps.pump.danapen.comm.ble.keep.DanaPENPacketEtcKeepConnection
 import app.aaps.pump.danapen.comm.pumpinfo.DanaPENPacketGeneralGetPumpCheck
 import app.aaps.pump.danapen.comm.pumpinfo.DanaPENPacketGeneralGetShippingInformation
@@ -161,16 +161,16 @@ class DanaPENService : DaggerService() {
             sendMessage(DanaPENPacketGeneralGetShippingInformation(injector)) // serial no
             sendMessage(DanaPENPacketGeneralGetPumpCheck(injector)) // firmware
             sendMessage(DanaPENPacketBasalProfileNumberGet(injector))
-            sendMessage(DanaPENPacketBolusGetBolusOption(injector)) // isExtendedEnabled
+            sendMessage(DanaPENPacketBolusBolusOptionGet(injector)) // isExtendedEnabled
             sendMessage(DanaPENPacketBasalGetBasalRate(injector)) // basal profile, basalStep, maxBasal
             sendMessage(DanaPENPacketBolusGetCalculationInformation(injector)) // target
-            if (danaPump.profile24) sendMessage(DanaPENPacketBolusGet24CIRCFArray(injector))
+            if (danaPump.profile24) sendMessage(DanaPENPacketBolus24CIRCFArrayGet(injector))
             else sendMessage(DanaPENPacketBolusGetCIRCFArray(injector))
             sendMessage(DanaPENPacketOptionGetUserOption(injector)) // Getting user options
             rxBus.send(EventPumpStatusChanged(rh.gs(R.string.gettingpumpstatus)))
             sendMessage(DanaPENPacketGeneralInitialScreenInformation(injector))
             rxBus.send(EventPumpStatusChanged(rh.gs(R.string.gettingbolusstatus)))
-            sendMessage(DanaPENPacketBolusGetStepBolusInformation(injector)) // last bolus, bolusStep, maxBolus
+            sendMessage(DanaPENPacketBolusStepBolusGetInformation(injector)) // last bolus, bolusStep, maxBolus
             danaPump.lastConnection = System.currentTimeMillis()
             val profile = profileFunction.getProfile()
             if (profile != null && abs(danaPump.currentBasal - profile.getBasal()) >= pump.pumpDescription.basalStep) {
@@ -296,7 +296,7 @@ class DanaPENService : DaggerService() {
         danaPump.bolusStopped = false
         danaPump.bolusStopForced = false
         danaPump.bolusProgressLastTimeStamp = dateUtil.now()
-        val start = DanaPENPacketBolusSetStepBolusStart(injector, insulin, preferencesSpeed)
+        val start = DanaPENPacketBolusStepBolusSetStart(injector, insulin, preferencesSpeed)
         if (carbs > 0) {
 //            MsgSetCarbsEntry msg = new MsgSetCarbsEntry(carbTime, carbs); ####
 //            sendMessage(msg);
@@ -347,7 +347,7 @@ class DanaPENService : DaggerService() {
             override fun run() {
                 // reread bolus status
                 rxBus.send(EventPumpStatusChanged(rh.gs(R.string.gettingbolusstatus)))
-                sendMessage(DanaPENPacketBolusGetStepBolusInformation(injector)) // last bolus
+                sendMessage(DanaPENPacketBolusStepBolusGetInformation(injector)) // last bolus
                 bolusingEvent.percent = 100
                 rxBus.send(EventPumpStatusChanged(rh.gs(app.aaps.core.interfaces.R.string.disconnecting)))
             }
@@ -357,7 +357,7 @@ class DanaPENService : DaggerService() {
 
     fun bolusStop() {
         aapsLogger.debug(LTag.PUMPCOMM, "bolusStop >>>>> @ " + if (danaPump.bolusingTreatment == null) "" else danaPump.bolusingTreatment?.insulin)
-        val stop = DanaPENPacketBolusSetStepBolusStop(injector)
+        val stop = DanaPENPacketBolusStepBolusSetStop(injector)
         danaPump.bolusStopForced = true
         if (isConnected) {
             sendMessage(stop)
@@ -486,7 +486,7 @@ class DanaPENService : DaggerService() {
         val msgActivate = DanaPENPacketBasalProfileNumberSet(injector, 0)
         sendMessage(msgActivate)
         if (danaPump.profile24) {
-            val msgProfile = DanaPENPacketBolusSet24CIRCFArray(injector, profile)
+            val msgProfile = DanaPENPacketBolus24CIRCFArraySet(injector, profile)
             sendMessage(msgProfile)
         }
         readPumpStatus()

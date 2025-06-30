@@ -11,7 +11,7 @@ import info.nightscout.androidaps.danapen.encryption.BleEncryption
 import javax.inject.Inject
 import kotlin.math.round
 
-class DanaPENPacketBolusSet24CIRCFArray(
+class DanaPENPacketBolus24CIRCFArraySet(
     injector: HasAndroidInjector,
     private val profile: Profile?
 ) : DanaPENPacket(injector) {

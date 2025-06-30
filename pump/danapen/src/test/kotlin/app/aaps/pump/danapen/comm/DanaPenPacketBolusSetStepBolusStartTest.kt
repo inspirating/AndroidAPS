@@ -9,7 +9,7 @@ import app.aaps.core.objects.constraints.ConstraintObject
 import app.aaps.pump.dana.database.DanaHistoryDatabase
 import app.aaps.pump.danapen.DanaPENPlugin
 import app.aaps.pump.danapen.DanaPENTestBase
-import app.aaps.pump.danapen.comm.bolus.DanaPENPacketBolusSetStepBolusStart
+import app.aaps.pump.danapen.comm.bolus.DanaPENPacketBolusStepBolusSetStart
 import dagger.android.AndroidInjector
 import dagger.android.HasAndroidInjector
 import org.junit.jupiter.api.Assertions
@@ -31,7 +31,7 @@ class DanaPenPacketBolusSetStepBolusStartTest : DanaPENTestBase() {
 
     private val packetInjector = HasAndroidInjector {
         AndroidInjector {
-            if (it is DanaPENPacketBolusSetStepBolusStart) {
+            if (it is DanaPENPacketBolusStepBolusSetStart) {
                 it.aapsLogger = aapsLogger
                 it.danaPump = danaPump
                 it.constraintChecker = constraintChecker
@@ -40,7 +40,7 @@ class DanaPenPacketBolusSetStepBolusStartTest : DanaPENTestBase() {
     }
 
     @Test fun runTest() {
-        val packet = DanaPENPacketBolusSetStepBolusStart(packetInjector)
+        val packet = DanaPENPacketBolusStepBolusSetStart(packetInjector)
         // test params
         val testParams = packet.getRequestParams()
         Assertions.assertEquals(0.toByte(), testParams[0])

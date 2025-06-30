@@ -7,7 +7,7 @@ import dagger.android.HasAndroidInjector
 import info.nightscout.androidaps.danapen.encryption.BleEncryption
 import javax.inject.Inject
 
-class DanaPENPacketBolusGet24CIRCFArray(
+class DanaPENPacketBolus24CIRCFArrayGet(
     injector: HasAndroidInjector
 ) : DanaPENPacket(injector) {
 

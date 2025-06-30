@@ -1,7 +1,7 @@
 package app.aaps.pump.danapen.comm
 
 import app.aaps.pump.danapen.DanaPENTestBase
-import app.aaps.pump.danapen.comm.bolus.DanaPENPacketBolusSetBolusOption
+import app.aaps.pump.danapen.comm.bolus.DanaPENPacketBolusBolusOptionSet
 import dagger.android.AndroidInjector
 import dagger.android.HasAndroidInjector
 import org.junit.jupiter.api.Assertions
@@ -11,14 +11,14 @@ class DanaPenPacketBolusSetBolusOptionTest : DanaPENTestBase() {
 
     private val packetInjector = HasAndroidInjector {
         AndroidInjector {
-            if (it is DanaPENPacketBolusSetBolusOption) {
+            if (it is DanaPENPacketBolusBolusOptionSet) {
                 it.aapsLogger = aapsLogger
             }
         }
     }
 
     @Test fun runTest() {
-        val packet = DanaPENPacketBolusSetBolusOption(packetInjector, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+        val packet = DanaPENPacketBolusBolusOptionSet(packetInjector, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
         // test params
         val testParams = packet.getRequestParams()
         Assertions.assertEquals(0.toByte(), testParams[0])

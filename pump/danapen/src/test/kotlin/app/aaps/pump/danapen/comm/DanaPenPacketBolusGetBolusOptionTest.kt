@@ -1,7 +1,7 @@
 package app.aaps.pump.danapen.comm
 
 import app.aaps.pump.danapen.DanaPENTestBase
-import app.aaps.pump.danapen.comm.bolus.DanaPENPacketBolusGetBolusOption
+import app.aaps.pump.danapen.comm.bolus.DanaPENPacketBolusBolusOptionGet
 import dagger.android.AndroidInjector
 import dagger.android.HasAndroidInjector
 import org.junit.jupiter.api.Assertions
@@ -11,7 +11,7 @@ class DanaPenPacketBolusGetBolusOptionTest : DanaPENTestBase() {
 
     private val packetInjector = HasAndroidInjector {
         AndroidInjector {
-            if (it is DanaPENPacketBolusGetBolusOption) {
+            if (it is DanaPENPacketBolusBolusOptionGet) {
                 it.aapsLogger = aapsLogger
                 it.rxBus = rxBus
                 it.rh = rh
@@ -22,7 +22,7 @@ class DanaPenPacketBolusGetBolusOptionTest : DanaPENTestBase() {
     }
 
     @Test fun runTest() {
-        val packet = DanaPENPacketBolusGetBolusOption(packetInjector)
+        val packet = DanaPENPacketBolusBolusOptionGet(packetInjector)
         // test message decoding
         //if dataArray is 1 pump.isExtendedBolusEnabled should be true
         packet.handleMessage(createArray(21, 1.toByte()))

@@ -9,7 +9,7 @@ import org.joda.time.DateTime
 import org.joda.time.DateTimeZone
 import javax.inject.Inject
 
-class DanaPENPacketBolusGetStepBolusInformation(
+class DanaPENPacketBolusStepBolusGetInformation(
     injector: HasAndroidInjector
 ) : DanaPENPacket(injector) {
 

@@ -5,7 +5,7 @@ import app.aaps.pump.danapen.comm.DanaPENPacket
 import dagger.android.HasAndroidInjector
 import info.nightscout.androidaps.danapen.encryption.BleEncryption
 
-class DanaPENPacketBolusSetBolusOption(
+class DanaPENPacketBolusBolusOptionSet(
     injector: HasAndroidInjector,
     private var extendedBolusOptionOnOff: Int = 0,
     private var bolusCalculationOption: Int = 0,

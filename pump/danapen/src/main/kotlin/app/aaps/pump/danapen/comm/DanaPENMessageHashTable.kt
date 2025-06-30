@@ -11,17 +11,17 @@ import app.aaps.pump.danapen.comm.basal.DanaPENPacketBasalSetSuspendOn
 import app.aaps.pump.danapen.comm.basal.DanaPENPacketBasalTemporaryBasalSet
 import app.aaps.pump.danapen.comm.ble.keep.DanaPENPacketEtcKeepConnection
 import app.aaps.pump.danapen.comm.ble.keep.DanaPENPacketEtcSetHistorySave
-import app.aaps.pump.danapen.comm.bolus.DanaPENPacketBolusGet24CIRCFArray
-import app.aaps.pump.danapen.comm.bolus.DanaPENPacketBolusGetBolusOption
+import app.aaps.pump.danapen.comm.bolus.DanaPENPacketBolus24CIRCFArrayGet
+import app.aaps.pump.danapen.comm.bolus.DanaPENPacketBolusBolusOptionGet
 import app.aaps.pump.danapen.comm.bolus.DanaPENPacketBolusGetCIRCFArray
 import app.aaps.pump.danapen.comm.bolus.DanaPENPacketBolusGetCalculationInformation
-import app.aaps.pump.danapen.comm.bolus.DanaPENPacketBolusGetStepBolusInformation
-import app.aaps.pump.danapen.comm.bolus.DanaPENPacketBolusSet24CIRCFArray
-import app.aaps.pump.danapen.comm.bolus.DanaPENPacketBolusSetBolusOption
+import app.aaps.pump.danapen.comm.bolus.DanaPENPacketBolusStepBolusGetInformation
+import app.aaps.pump.danapen.comm.bolus.DanaPENPacketBolus24CIRCFArraySet
+import app.aaps.pump.danapen.comm.bolus.DanaPENPacketBolusBolusOptionSet
 import app.aaps.pump.danapen.comm.bolus.DanaPENPacketBolusSetExtendedBolus
 import app.aaps.pump.danapen.comm.bolus.DanaPENPacketBolusSetExtendedBolusCancel
-import app.aaps.pump.danapen.comm.bolus.DanaPENPacketBolusSetStepBolusStart
-import app.aaps.pump.danapen.comm.bolus.DanaPENPacketBolusSetStepBolusStop
+import app.aaps.pump.danapen.comm.bolus.DanaPENPacketBolusStepBolusSetStart
+import app.aaps.pump.danapen.comm.bolus.DanaPENPacketBolusStepBolusSetStop
 import app.aaps.pump.danapen.comm.history.DanaPENPacketAPSHistoryEvents
 import app.aaps.pump.danapen.comm.history.DanaPENPacketAPSSetEventHistory
 import app.aaps.pump.danapen.comm.history.DanaPENPacketHistoryAlarm
@@ -82,17 +82,17 @@ class DanaPENMessageHashTable @Inject constructor(
         put(DanaPENPacketBasalSetSuspendOff(injector))
         put(DanaPENPacketBasalSetSuspendOn(injector))
         put(DanaPENPacketBasalTemporaryBasalSet(injector))
-        put(DanaPENPacketBolusGetBolusOption(injector))
+        put(DanaPENPacketBolusBolusOptionGet(injector))
         put(DanaPENPacketBolusGetCalculationInformation(injector))
         put(DanaPENPacketBolusGetCIRCFArray(injector))
-        put(DanaPENPacketBolusGetStepBolusInformation(injector))
-        put(DanaPENPacketBolusSetBolusOption(injector))
-        put(DanaPENPacketBolusSet24CIRCFArray(injector, null))
-        put(DanaPENPacketBolusGet24CIRCFArray(injector))
+        put(DanaPENPacketBolusStepBolusGetInformation(injector))
+        put(DanaPENPacketBolusBolusOptionSet(injector))
+        put(DanaPENPacketBolus24CIRCFArraySet(injector, null))
+        put(DanaPENPacketBolus24CIRCFArrayGet(injector))
         put(DanaPENPacketBolusSetExtendedBolus(injector))
         put(DanaPENPacketBolusSetExtendedBolusCancel(injector))
-        put(DanaPENPacketBolusSetStepBolusStart(injector))
-        put(DanaPENPacketBolusSetStepBolusStop(injector))
+        put(DanaPENPacketBolusStepBolusSetStart(injector))
+        put(DanaPENPacketBolusStepBolusSetStop(injector))
         put(DanaPENPacketEtcKeepConnection(injector))
         put(DanaPENPacketEtcSetHistorySave(injector))
         put(DanaPENPacketGeneralInitialScreenInformation(injector))
