@@ -5,7 +5,7 @@ import app.aaps.pump.danapen.comm.DanaPENPacket
 import dagger.android.HasAndroidInjector
 import info.nightscout.androidaps.danapen.encryption.BleEncryption
 
-class DanaPENPacketAPSBasalSetTemporaryBasal(
+class DanaPENPacketAPSBasalTemporaryBasalSet(
     injector: HasAndroidInjector,
     private var percent: Int
 ) : DanaPENPacket(injector) {

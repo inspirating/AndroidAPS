@@ -1,24 +1,24 @@
 package app.aaps.pump.danapen.comm
 
 import app.aaps.pump.danapen.DanaPENTestBase
-import app.aaps.pump.danapen.comm.basal.DanaPENPacketBasalSetTemporaryBasal
+import app.aaps.pump.danapen.comm.basal.DanaPENPacketBasalTemporaryBasalSet
 import dagger.android.AndroidInjector
 import dagger.android.HasAndroidInjector
 import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.Test
 
-class DanaPENPacketBasalSetTemporaryBasalTest : DanaPENTestBase() {
+class DanaPENPacketBasalTemporaryBasalSetTest : DanaPENTestBase() {
 
     private val packetInjector = HasAndroidInjector {
         AndroidInjector {
-            if (it is DanaPENPacketBasalSetTemporaryBasal) {
+            if (it is DanaPENPacketBasalTemporaryBasalSet) {
                 it.aapsLogger = aapsLogger
             }
         }
     }
 
     @Test fun runTest() {
-        val testPacket = DanaPENPacketBasalSetTemporaryBasal(packetInjector, 50, 20)
+        val testPacket = DanaPENPacketBasalTemporaryBasalSet(packetInjector, 50, 20)
         // params
         val params = testPacket.getRequestParams()
         // is ratio 50

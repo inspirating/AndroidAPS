@@ -7,7 +7,7 @@ import dagger.android.HasAndroidInjector
 import info.nightscout.androidaps.danapen.encryption.BleEncryption
 import javax.inject.Inject
 
-class DanaPENPacketBasalGetProfileNumber(
+class DanaPENPacketBasalProfileNumberGet(
     injector: HasAndroidInjector
 ) : DanaPENPacket(injector) {
 

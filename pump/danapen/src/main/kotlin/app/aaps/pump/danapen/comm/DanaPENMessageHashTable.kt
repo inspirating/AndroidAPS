@@ -1,14 +1,14 @@
 package app.aaps.pump.danapen.comm
 
-import app.aaps.pump.danapen.comm.basal.DanaPENPacketAPSBasalSetTemporaryBasal
+import app.aaps.pump.danapen.comm.basal.DanaPENPacketAPSBasalTemporaryBasalSet
 import app.aaps.pump.danapen.comm.basal.DanaPENPacketBasalGetBasalRate
-import app.aaps.pump.danapen.comm.basal.DanaPENPacketBasalGetProfileNumber
-import app.aaps.pump.danapen.comm.basal.DanaPENPacketBasalSetCancelTemporaryBasal
+import app.aaps.pump.danapen.comm.basal.DanaPENPacketBasalProfileNumberGet
+import app.aaps.pump.danapen.comm.basal.DanaPENPacketBasalTemporaryBasalSetCancel
 import app.aaps.pump.danapen.comm.basal.DanaPENPacketBasalSetProfileBasalRate
-import app.aaps.pump.danapen.comm.basal.DanaPENPacketBasalSetProfileNumber
+import app.aaps.pump.danapen.comm.basal.DanaPENPacketBasalProfileNumberSet
 import app.aaps.pump.danapen.comm.basal.DanaPENPacketBasalSetSuspendOff
 import app.aaps.pump.danapen.comm.basal.DanaPENPacketBasalSetSuspendOn
-import app.aaps.pump.danapen.comm.basal.DanaPENPacketBasalSetTemporaryBasal
+import app.aaps.pump.danapen.comm.basal.DanaPENPacketBasalTemporaryBasalSet
 import app.aaps.pump.danapen.comm.ble.keep.DanaPENPacketEtcKeepConnection
 import app.aaps.pump.danapen.comm.ble.keep.DanaPENPacketEtcSetHistorySave
 import app.aaps.pump.danapen.comm.bolus.DanaPENPacketBolusGet24CIRCFArray
@@ -74,14 +74,14 @@ class DanaPENMessageHashTable @Inject constructor(
     }
 
     init {
-        put(DanaPENPacketBasalSetCancelTemporaryBasal(injector))
+        put(DanaPENPacketBasalTemporaryBasalSetCancel(injector))
         put(DanaPENPacketBasalGetBasalRate(injector))
-        put(DanaPENPacketBasalGetProfileNumber(injector))
+        put(DanaPENPacketBasalProfileNumberGet(injector))
         put(DanaPENPacketBasalSetProfileBasalRate(injector, 0, arrayOf()))
-        put(DanaPENPacketBasalSetProfileNumber(injector))
+        put(DanaPENPacketBasalProfileNumberSet(injector))
         put(DanaPENPacketBasalSetSuspendOff(injector))
         put(DanaPENPacketBasalSetSuspendOn(injector))
-        put(DanaPENPacketBasalSetTemporaryBasal(injector))
+        put(DanaPENPacketBasalTemporaryBasalSet(injector))
         put(DanaPENPacketBolusGetBolusOption(injector))
         put(DanaPENPacketBolusGetCalculationInformation(injector))
         put(DanaPENPacketBolusGetCIRCFArray(injector))
@@ -125,7 +125,7 @@ class DanaPENMessageHashTable @Inject constructor(
         put(DanaPENPacketGeneralSetHistoryUploadMode(injector))
         put(DanaPENPacketGeneralSetUserTimeChangeFlagClear(injector))
         // APS
-        put(DanaPENPacketAPSBasalSetTemporaryBasal(injector, 0))
+        put(DanaPENPacketAPSBasalTemporaryBasalSet(injector, 0))
         put(DanaPENPacketAPSHistoryEvents(injector, 0))
         put(DanaPENPacketAPSSetEventHistory(injector, 0, 0, 0, 0))
         // v3

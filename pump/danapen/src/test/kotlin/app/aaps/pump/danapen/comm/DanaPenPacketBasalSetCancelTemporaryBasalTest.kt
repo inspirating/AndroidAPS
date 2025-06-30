@@ -1,7 +1,7 @@
 package app.aaps.pump.danapen.comm
 
 import app.aaps.pump.danapen.DanaPENTestBase
-import app.aaps.pump.danapen.comm.basal.DanaPENPacketBasalSetCancelTemporaryBasal
+import app.aaps.pump.danapen.comm.basal.DanaPENPacketBasalTemporaryBasalSetCancel
 import dagger.android.AndroidInjector
 import dagger.android.HasAndroidInjector
 import org.junit.jupiter.api.Assertions
@@ -11,14 +11,14 @@ class DanaPenPacketBasalSetCancelTemporaryBasalTest : DanaPENTestBase() {
 
     private val packetInjector = HasAndroidInjector {
         AndroidInjector {
-            if (it is DanaPENPacketBasalSetCancelTemporaryBasal) {
+            if (it is DanaPENPacketBasalTemporaryBasalSetCancel) {
                 it.aapsLogger = aapsLogger
             }
         }
     }
 
     @Test fun runTest() {
-        val packet = DanaPENPacketBasalSetCancelTemporaryBasal(packetInjector)
+        val packet = DanaPENPacketBasalTemporaryBasalSetCancel(packetInjector)
         // test message decoding
         packet.handleMessage(createArray(3, 0.toByte()))
         Assertions.assertEquals(false, packet.failed)

@@ -1,7 +1,7 @@
 package app.aaps.pump.danapen.comm
 
 import app.aaps.pump.danapen.DanaPENTestBase
-import app.aaps.pump.danapen.comm.basal.DanaPENPacketBasalSetProfileNumber
+import app.aaps.pump.danapen.comm.basal.DanaPENPacketBasalProfileNumberSet
 import dagger.android.AndroidInjector
 import dagger.android.HasAndroidInjector
 import org.junit.jupiter.api.Assertions
@@ -11,14 +11,14 @@ class DanaPenPacketBasalSetProfileNumberTest : DanaPENTestBase() {
 
     private val packetInjector = HasAndroidInjector {
         AndroidInjector {
-            if (it is DanaPENPacketBasalSetProfileNumber) {
+            if (it is DanaPENPacketBasalProfileNumberSet) {
                 it.aapsLogger = aapsLogger
             }
         }
     }
 
     @Test fun runTest() {
-        val packet = DanaPENPacketBasalSetProfileNumber(packetInjector, 1)
+        val packet = DanaPENPacketBasalProfileNumberSet(packetInjector, 1)
         // test params
         val testParams = packet.getRequestParams()
         // is profile 1

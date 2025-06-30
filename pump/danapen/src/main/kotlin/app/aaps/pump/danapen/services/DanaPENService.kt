@@ -40,15 +40,15 @@ import app.aaps.pump.dana.events.EventDanaRNewStatus
 import app.aaps.pump.dana.keys.DanaIntKey
 import app.aaps.pump.danapen.DanaPENPlugin
 import app.aaps.pump.danapen.comm.DanaPENPacket
-import app.aaps.pump.danapen.comm.basal.DanaPENPacketAPSBasalSetTemporaryBasal
+import app.aaps.pump.danapen.comm.basal.DanaPENPacketAPSBasalTemporaryBasalSet
 import app.aaps.pump.danapen.comm.history.DanaPENPacketAPSHistoryEvents
 import app.aaps.pump.danapen.comm.history.DanaPENPacketAPSSetEventHistory
 import app.aaps.pump.danapen.comm.basal.DanaPENPacketBasalGetBasalRate
-import app.aaps.pump.danapen.comm.basal.DanaPENPacketBasalGetProfileNumber
-import app.aaps.pump.danapen.comm.basal.DanaPENPacketBasalSetCancelTemporaryBasal
+import app.aaps.pump.danapen.comm.basal.DanaPENPacketBasalProfileNumberGet
+import app.aaps.pump.danapen.comm.basal.DanaPENPacketBasalTemporaryBasalSetCancel
 import app.aaps.pump.danapen.comm.basal.DanaPENPacketBasalSetProfileBasalRate
-import app.aaps.pump.danapen.comm.basal.DanaPENPacketBasalSetProfileNumber
-import app.aaps.pump.danapen.comm.basal.DanaPENPacketBasalSetTemporaryBasal
+import app.aaps.pump.danapen.comm.basal.DanaPENPacketBasalProfileNumberSet
+import app.aaps.pump.danapen.comm.basal.DanaPENPacketBasalTemporaryBasalSet
 import app.aaps.pump.danapen.comm.bolus.DanaPENPacketBolusGet24CIRCFArray
 import app.aaps.pump.danapen.comm.bolus.DanaPENPacketBolusGetBolusOption
 import app.aaps.pump.danapen.comm.bolus.DanaPENPacketBolusGetCIRCFArray
@@ -160,7 +160,7 @@ class DanaPENService : DaggerService() {
             if (!bleComm.isConnected) return
             sendMessage(DanaPENPacketGeneralGetShippingInformation(injector)) // serial no
             sendMessage(DanaPENPacketGeneralGetPumpCheck(injector)) // firmware
-            sendMessage(DanaPENPacketBasalGetProfileNumber(injector))
+            sendMessage(DanaPENPacketBasalProfileNumberGet(injector))
             sendMessage(DanaPENPacketBolusGetBolusOption(injector)) // isExtendedEnabled
             sendMessage(DanaPENPacketBasalGetBasalRate(injector)) // basal profile, basalStep, maxBasal
             sendMessage(DanaPENPacketBolusGetCalculationInformation(injector)) // target
@@ -377,11 +377,11 @@ class DanaPENService : DaggerService() {
         if (status.failed) return false
         if (status.isTempBasalInProgress) {
             rxBus.send(EventPumpStatusChanged(rh.gs(R.string.stoppingtempbasal)))
-            sendMessage(DanaPENPacketBasalSetCancelTemporaryBasal(injector))
+            sendMessage(DanaPENPacketBasalTemporaryBasalSetCancel(injector))
             SystemClock.sleep(500)
         }
         rxBus.send(EventPumpStatusChanged(rh.gs(R.string.settingtempbasal)))
-        val msgTBR = DanaPENPacketBasalSetTemporaryBasal(injector, percent, durationInHours)
+        val msgTBR = DanaPENPacketBasalTemporaryBasalSet(injector, percent, durationInHours)
         sendMessage(msgTBR)
         SystemClock.sleep(200)
         loadEvents()
@@ -398,11 +398,11 @@ class DanaPENService : DaggerService() {
         if (status.failed) return false
         if (status.isTempBasalInProgress) {
             rxBus.send(EventPumpStatusChanged(rh.gs(R.string.stoppingtempbasal)))
-            sendMessage(DanaPENPacketBasalSetCancelTemporaryBasal(injector))
+            sendMessage(DanaPENPacketBasalTemporaryBasalSetCancel(injector))
             SystemClock.sleep(500)
         }
         rxBus.send(EventPumpStatusChanged(rh.gs(R.string.settingtempbasal)))
-        val msgTBR = DanaPENPacketAPSBasalSetTemporaryBasal(injector, percent)
+        val msgTBR = DanaPENPacketAPSBasalTemporaryBasalSet(injector, percent)
         sendMessage(msgTBR)
         loadEvents()
         SystemClock.sleep(4500)
@@ -422,11 +422,11 @@ class DanaPENService : DaggerService() {
         if (status.failed) return false
         if (status.isTempBasalInProgress) {
             rxBus.send(EventPumpStatusChanged(rh.gs(R.string.stoppingtempbasal)))
-            sendMessage(DanaPENPacketBasalSetCancelTemporaryBasal(injector))
+            sendMessage(DanaPENPacketBasalTemporaryBasalSetCancel(injector))
             SystemClock.sleep(500)
         }
         rxBus.send(EventPumpStatusChanged(rh.gs(R.string.settingtempbasal)))
-        val msgTBR = DanaPENPacketAPSBasalSetTemporaryBasal(injector, percent)
+        val msgTBR = DanaPENPacketAPSBasalTemporaryBasalSet(injector, percent)
         sendMessage(msgTBR)
         loadEvents()
         SystemClock.sleep(4500)
@@ -440,7 +440,7 @@ class DanaPENService : DaggerService() {
     fun tempBasalStop(): Boolean {
         if (!isConnected) return false
         rxBus.send(EventPumpStatusChanged(rh.gs(R.string.stoppingtempbasal)))
-        val msgCancel = DanaPENPacketBasalSetCancelTemporaryBasal(injector)
+        val msgCancel = DanaPENPacketBasalTemporaryBasalSetCancel(injector)
         sendMessage(msgCancel)
         loadEvents()
         SystemClock.sleep(4500)
@@ -483,7 +483,7 @@ class DanaPENService : DaggerService() {
         val basal = danaPump.buildDanaRProfileRecord(profile)
         val msgSet = DanaPENPacketBasalSetProfileBasalRate(injector, 0, basal)
         sendMessage(msgSet)
-        val msgActivate = DanaPENPacketBasalSetProfileNumber(injector, 0)
+        val msgActivate = DanaPENPacketBasalProfileNumberSet(injector, 0)
         sendMessage(msgActivate)
         if (danaPump.profile24) {
             val msgProfile = DanaPENPacketBolusSet24CIRCFArray(injector, profile)

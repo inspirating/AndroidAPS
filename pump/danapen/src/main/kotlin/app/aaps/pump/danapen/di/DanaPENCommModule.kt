@@ -1,17 +1,17 @@
 package app.aaps.pump.danapen.di
 
 import app.aaps.pump.danapen.comm.DanaPENPacket
-import app.aaps.pump.danapen.comm.basal.DanaPENPacketAPSBasalSetTemporaryBasal
+import app.aaps.pump.danapen.comm.basal.DanaPENPacketAPSBasalTemporaryBasalSet
 import app.aaps.pump.danapen.comm.history.DanaPENPacketAPSHistoryEvents
 import app.aaps.pump.danapen.comm.history.DanaPENPacketAPSSetEventHistory
 import app.aaps.pump.danapen.comm.basal.DanaPENPacketBasalGetBasalRate
-import app.aaps.pump.danapen.comm.basal.DanaPENPacketBasalGetProfileNumber
-import app.aaps.pump.danapen.comm.basal.DanaPENPacketBasalSetCancelTemporaryBasal
+import app.aaps.pump.danapen.comm.basal.DanaPENPacketBasalProfileNumberGet
+import app.aaps.pump.danapen.comm.basal.DanaPENPacketBasalTemporaryBasalSetCancel
 import app.aaps.pump.danapen.comm.basal.DanaPENPacketBasalSetProfileBasalRate
-import app.aaps.pump.danapen.comm.basal.DanaPENPacketBasalSetProfileNumber
+import app.aaps.pump.danapen.comm.basal.DanaPENPacketBasalProfileNumberSet
 import app.aaps.pump.danapen.comm.basal.DanaPENPacketBasalSetSuspendOff
 import app.aaps.pump.danapen.comm.basal.DanaPENPacketBasalSetSuspendOn
-import app.aaps.pump.danapen.comm.basal.DanaPENPacketBasalSetTemporaryBasal
+import app.aaps.pump.danapen.comm.basal.DanaPENPacketBasalTemporaryBasalSet
 import app.aaps.pump.danapen.comm.bolus.DanaPENPacketBolusGet24CIRCFArray
 import app.aaps.pump.danapen.comm.bolus.DanaPENPacketBolusGetBolusOption
 import app.aaps.pump.danapen.comm.bolus.DanaPENPacketBolusGetCIRCFArray
@@ -64,14 +64,14 @@ import dagger.android.ContributesAndroidInjector
 abstract class DanaPENCommModule {
 
     @ContributesAndroidInjector abstract fun contributesDanaPENPacket(): DanaPENPacket
-    @ContributesAndroidInjector abstract fun contributesDanaPENPacketBasalSetCancelTemporaryBasal(): DanaPENPacketBasalSetCancelTemporaryBasal
+    @ContributesAndroidInjector abstract fun contributesDanaPENPacketBasalSetCancelTemporaryBasal(): DanaPENPacketBasalTemporaryBasalSetCancel
     @ContributesAndroidInjector abstract fun contributesDanaPENPacketBasalGetBasalRate(): DanaPENPacketBasalGetBasalRate
-    @ContributesAndroidInjector abstract fun contributesDanaPENPacketBasalGetProfileNumber(): DanaPENPacketBasalGetProfileNumber
+    @ContributesAndroidInjector abstract fun contributesDanaPENPacketBasalGetProfileNumber(): DanaPENPacketBasalProfileNumberGet
     @ContributesAndroidInjector abstract fun contributesDanaPENPacketBasalSetProfileBasalRate(): DanaPENPacketBasalSetProfileBasalRate
-    @ContributesAndroidInjector abstract fun contributesDanaPENPacketBasalSetProfileNumber(): DanaPENPacketBasalSetProfileNumber
+    @ContributesAndroidInjector abstract fun contributesDanaPENPacketBasalSetProfileNumber(): DanaPENPacketBasalProfileNumberSet
     @ContributesAndroidInjector abstract fun contributesDanaPENPacketBasalSetSuspendOff(): DanaPENPacketBasalSetSuspendOff
     @ContributesAndroidInjector abstract fun contributesDanaPENPacketBasalSetSuspendOn(): DanaPENPacketBasalSetSuspendOn
-    @ContributesAndroidInjector abstract fun contributesDanaPENPacketBasalSetTemporaryBasal(): DanaPENPacketBasalSetTemporaryBasal
+    @ContributesAndroidInjector abstract fun contributesDanaPENPacketBasalSetTemporaryBasal(): DanaPENPacketBasalTemporaryBasalSet
     @ContributesAndroidInjector abstract fun contributesDanaPENPacketBolusGetBolusOption(): DanaPENPacketBolusGetBolusOption
     @ContributesAndroidInjector abstract fun contributesDanaPENPacketBolusGetCalculationInformation(): DanaPENPacketBolusGetCalculationInformation
     @ContributesAndroidInjector abstract fun contributesDanaPENPacketBolusGetCIRCFArray(): DanaPENPacketBolusGetCIRCFArray
@@ -112,7 +112,7 @@ abstract class DanaPENCommModule {
     @ContributesAndroidInjector abstract fun contributesDanaPENPacketGeneralSetUserTimeChangeFlagClear(): DanaPENPacketGeneralSetUserTimeChangeFlagClear
     @ContributesAndroidInjector abstract fun contributesDanaPENPacketHistorySuspend(): DanaPENPacketHistorySuspend
     @ContributesAndroidInjector abstract fun contributesDanaPENPacketHistoryTemporary(): DanaPENPacketHistoryTemporary
-    @ContributesAndroidInjector abstract fun contributesDanaPENPacketAPSBasalSetTemporaryBasal(): DanaPENPacketAPSBasalSetTemporaryBasal
+    @ContributesAndroidInjector abstract fun contributesDanaPENPacketAPSBasalSetTemporaryBasal(): DanaPENPacketAPSBasalTemporaryBasalSet
     @ContributesAndroidInjector abstract fun contributesDanaPENPacketAPSHistoryEvents(): DanaPENPacketAPSHistoryEvents
     @ContributesAndroidInjector abstract fun contributesDanaPENPacketAPSSetEventHistory(): DanaPENPacketAPSSetEventHistory
     @ContributesAndroidInjector abstract fun contributesDanaPENPacketGeneralGetShippingVersion(): DanaPENPacketGeneralGetShippingVersion
