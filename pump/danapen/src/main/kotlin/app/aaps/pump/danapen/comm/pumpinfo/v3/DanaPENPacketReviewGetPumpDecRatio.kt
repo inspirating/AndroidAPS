@@ -1,29 +1,28 @@
-package app.aaps.pump.danapen.comm.pumpinfo
+package app.aaps.pump.danapen.comm.pumpinfo.v3
 
 import app.aaps.core.interfaces.logging.LTag
 import app.aaps.pump.dana.DanaPump
 import app.aaps.pump.danapen.comm.DanaPENPacket
 import dagger.android.HasAndroidInjector
 import info.nightscout.androidaps.danapen.encryption.BleEncryption
-import java.nio.charset.Charset
 import javax.inject.Inject
 
-class DanaPENPacketGeneralGetShippingVersion(
+class DanaPENPacketReviewGetPumpDecRatio(
     injector: HasAndroidInjector
 ) : DanaPENPacket(injector) {
 
     @Inject lateinit var danaPump: DanaPump
 
     init {
-        opCode = BleEncryption.DANAR_PACKET__OPCODE_GENERAL__GET_SHIPPING_VERSION
+        opCode = BleEncryption.DANAR_PACKET__OPCODE_REVIEW__GET_PUMP_DEC_RATIO
         aapsLogger.debug(LTag.PUMPCOMM, "New message")
     }
 
     override fun handleMessage(data: ByteArray) {
-        danaPump.bleModel = data.copyOfRange(DATA_START, data.size).toString(Charset.forName("US-ASCII"))
+        danaPump.decRatio = intFromBuff(data, 0, 1) * 5
         failed = false
-        aapsLogger.debug(LTag.PUMPCOMM, "BLE Model: " + danaPump.bleModel)
+        aapsLogger.debug(LTag.PUMPCOMM, "Dec ratio: ${danaPump.decRatio}%")
     }
 
-    override val friendlyName: String = "GENERAL__GET_SHIPPING_VERSION"
+    override val friendlyName: String = "REVIEW__GET_PUMP_DEC_RATIO"
 }

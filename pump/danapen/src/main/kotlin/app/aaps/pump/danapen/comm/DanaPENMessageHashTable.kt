@@ -41,7 +41,7 @@ import app.aaps.pump.danapen.comm.notify.DanaPENPacketNotifyDeliveryRateDisplay
 import app.aaps.pump.danapen.comm.notify.error.DanaPENPacketNotifyMissedBolusAlarm
 import app.aaps.pump.danapen.comm.pumpinfo.DanaPENPacketGeneralGetPumpCheck
 import app.aaps.pump.danapen.comm.pumpinfo.DanaPENPacketGeneralGetShippingInformation
-import app.aaps.pump.danapen.comm.pumpinfo.DanaPENPacketGeneralGetShippingVersion
+import app.aaps.pump.danapen.comm.pumpinfo.v3.DanaPENPacketGeneralGetShippingVersion
 import app.aaps.pump.danapen.comm.pumpinfo.user.DanaPENPacketGeneralGetUserTimeChangeFlag
 import app.aaps.pump.danapen.comm.pumpinfo.DanaPENPacketGeneralInitialScreenInformation
 import app.aaps.pump.danapen.comm.pumpinfo.DanaPENPacketGeneralSetHistoryUploadMode
@@ -53,7 +53,7 @@ import app.aaps.pump.danapen.comm.pumpinfo.time.DanaPENPacketOptionSetPumpTime
 import app.aaps.pump.danapen.comm.pumpinfo.time.DanaPENPacketOptionSetPumpUTCAndTimeZone
 import app.aaps.pump.danapen.comm.pumpinfo.user.DanaPENPacketOptionSetUserOption
 import app.aaps.pump.danapen.comm.pumpinfo.DanaPENPacketReviewBolusAvg
-import app.aaps.pump.danapen.comm.pumpinfo.DanaPENPacketReviewGetPumpDecRatio
+import app.aaps.pump.danapen.comm.pumpinfo.v3.DanaPENPacketReviewGetPumpDecRatio
 import dagger.android.HasAndroidInjector
 import javax.inject.Inject
 import javax.inject.Singleton
