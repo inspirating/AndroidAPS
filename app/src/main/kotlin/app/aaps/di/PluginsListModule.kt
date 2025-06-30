@@ -173,7 +173,7 @@ abstract class PluginsListModule {
     @Binds
     @PumpDriver
     @IntoMap
-    @IntKey(120)
+    @IntKey(121)
     abstract fun bindDanaPENPlugin(plugin: DanaPENPlugin): PluginBase
 
     @Binds
