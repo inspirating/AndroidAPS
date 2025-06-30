@@ -28,6 +28,7 @@ dependencies {
     testImplementation(project(":pump:dana"))
     testImplementation(project(":pump:danar"))
     testImplementation(project(":pump:danars"))
+    testImplementation(project(":pump:danapen"))
     testImplementation(project(":pump:virtual"))
     testImplementation(project(":shared:tests"))
 

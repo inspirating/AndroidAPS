@@ -16,15 +16,6 @@ android {
     }
 }
 
-android {
-    namespace = "app.aaps.pump.danars"
-    ndkVersion = Versions.ndkVersion
-
-    sourceSets.getByName("main") {
-        jniLibs.srcDirs("src/main/jniLibs")
-    }
-}
-
 dependencies {
     implementation(project(":core:data"))
     implementation(project(":core:interfaces"))
