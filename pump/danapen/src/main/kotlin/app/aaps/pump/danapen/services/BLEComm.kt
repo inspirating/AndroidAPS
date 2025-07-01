@@ -178,22 +178,22 @@ class BLEComm @Inject internal constructor(
                 preferences.put(DanaLongKey.DanaRsLastClearKeyRequest, dateUtil.now())
             }
         }
-        if (!encryptedDataRead && encryptedCommandSent && encryption == EncryptionType.ENCRYPTION_RSv3) {
-            // there was no response from pump after started encryption
-            // assume pairing keys are invalid
-            val lastClearRequest = preferences.get(DanaLongKey.DanaRsLastClearKeyRequest)
-            if (lastClearRequest != 0L && dateUtil.isOlderThan(lastClearRequest, 5)) {
-                aapsLogger.error(LTag.PUMPBTCOMM, "Clearing pairing keys !!!")
-                preferences.remove(DanaString2Key.DanaRsV3RandomParingKey, danaPENPlugin.mDeviceName)
-                preferences.remove(DanaString2Key.DanaRsV3ParingKey, danaPENPlugin.mDeviceName)
-                preferences.remove(DanaString2Key.DanaRsV3RandomSyncKey, danaPENPlugin.mDeviceName)
-                ToastUtils.errorToast(context, R.string.invalidpairing)
-                danaPENPlugin.changePump()
-            } else if (lastClearRequest == 0L) {
-                aapsLogger.error(LTag.PUMPBTCOMM, "Clearing pairing keys postponed")
-                preferences.put(DanaLongKey.DanaRsLastClearKeyRequest, dateUtil.now())
-            }
-        }
+        // if (!encryptedDataRead && encryptedCommandSent && encryption == EncryptionType.ENCRYPTION_RSv3) {
+        //     // there was no response from pump after started encryption
+        //     // assume pairing keys are invalid
+        //     val lastClearRequest = preferences.get(DanaLongKey.DanaRsLastClearKeyRequest)
+        //     if (lastClearRequest != 0L && dateUtil.isOlderThan(lastClearRequest, 5)) {
+        //         aapsLogger.error(LTag.PUMPBTCOMM, "Clearing pairing keys !!!")
+        //         preferences.remove(DanaString2Key.DanaRsV3RandomParingKey, danaPENPlugin.mDeviceName)
+        //         preferences.remove(DanaString2Key.DanaRsV3ParingKey, danaPENPlugin.mDeviceName)
+        //         preferences.remove(DanaString2Key.DanaRsV3RandomSyncKey, danaPENPlugin.mDeviceName)
+        //         ToastUtils.errorToast(context, R.string.invalidpairing)
+        //         danaPENPlugin.changePump()
+        //     } else if (lastClearRequest == 0L) {
+        //         aapsLogger.error(LTag.PUMPBTCOMM, "Clearing pairing keys postponed")
+        //         preferences.put(DanaLongKey.DanaRsLastClearKeyRequest, dateUtil.now())
+        //     }
+        // }
         // cancel previous scheduled disconnection to prevent closing upcoming connection
         scheduledDisconnection?.cancel(false)
         scheduledDisconnection = null
@@ -549,7 +549,7 @@ class BLEComm @Inject internal constructor(
                 sendPairingRequest()
             }
             // response OK v3
-        } else if (decryptedBuffer.size == 9 && decryptedBuffer[2] == 'O'.code.toByte() && decryptedBuffer[3] == 'K'.code.toByte()) {
+        } /*else if (decryptedBuffer.size == 9 && decryptedBuffer[2] == 'O'.code.toByte() && decryptedBuffer[3] == 'K'.code.toByte()) {
             // v3 2nd layer encryption
             encryption = EncryptionType.ENCRYPTION_RSv3
             danaPump.ignoreUserPassword = true
@@ -567,8 +567,10 @@ class BLEComm @Inject internal constructor(
                 // Dana RS Easy
                 sendEasyMenuCheck()
             }
-            // response OK BLE5
-        } else if (decryptedBuffer.size == 14 && decryptedBuffer[2] == 'O'.code.toByte() && decryptedBuffer[3] == 'K'.code.toByte()) {
+
+        }*/
+        // response OK BLE5
+        else if (decryptedBuffer.size == 14 && decryptedBuffer[2] == 'O'.code.toByte() && decryptedBuffer[3] == 'K'.code.toByte()) {
             // v3 2nd layer encryption
             encryption = EncryptionType.ENCRYPTION_BLE5
             danaPump.ignoreUserPassword = true
@@ -689,7 +691,7 @@ class BLEComm @Inject internal constructor(
             isConnected = true
             isConnecting = false
             aapsLogger.debug(LTag.PUMPBTCOMM, "Connect !!")
-        } else if (encryption == EncryptionType.ENCRYPTION_RSv3) {
+        } /*else if (encryption == EncryptionType.ENCRYPTION_RSv3) {
             // decryptedBuffer[2] : 0x00 OK  0x01 Error, No pairing
             if (decryptedBuffer[2] == 0x00.toByte()) {
                 val randomPairingKey = preferences.get(DanaString2Key.DanaRsV3RandomParingKey, danaPENPlugin.mDeviceName)
@@ -708,7 +710,7 @@ class BLEComm @Inject internal constructor(
                 sendV3PairingInformation(1)
             }
 
-        } else {
+        }*/ else {
             val size = decryptedBuffer.size
             var pass: Int = (decryptedBuffer[size - 1].toInt() and 0x000000FF shl 8) + (decryptedBuffer[size - 2].toInt() and 0x000000FF)
             pass = pass xor 3463
@@ -809,8 +811,10 @@ class BLEComm @Inject internal constructor(
         isUnitUD = decryptedBuffer[3] == 0x01.toByte()
 
         // request time information
-        if (encryption == EncryptionType.ENCRYPTION_RSv3) sendV3PairingInformation()
-        else sendTimeInfo()
+        // if (encryption == EncryptionType.ENCRYPTION_RSv3) sendV3PairingInformation()
+        // else sendTimeInfo()
+
+        sendTimeInfo()
     }
 
     // the rest of packets
