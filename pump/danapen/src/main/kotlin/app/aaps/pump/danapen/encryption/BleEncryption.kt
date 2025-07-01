@@ -36,6 +36,8 @@ class BleEncryption @Inject constructor(private val context: Context) {
 
     // 新增原始包构建方法
     fun buildPlainPacket(type: Byte, opCode: Byte, params: ByteArray?): ByteArray {
+        val isBLE5 = opCode == BleEncryption.DANAR_PACKET__OPCODE_ENCRYPTION__TIME_INFORMATION.toByte()
+
         val header = byteArrayOf(
             0xA5.toByte(),  // 起始字节1
             0xA5.toByte(),  // 起始字节2
@@ -53,11 +55,12 @@ class BleEncryption @Inject constructor(private val context: Context) {
 
     companion object {
 
-        // const val DANAR_PACKET__TYPE_ENCRYPTION_REQUEST = 0x01
-        // const val DANAR_PACKET__TYPE_ENCRYPTION_RESPONSE = 0x02
+        const val DANAR_PACKET__TYPE_ENCRYPTION_REQUEST = 0x01
+        const val DANAR_PACKET__TYPE_ENCRYPTION_RESPONSE = 0x02
 
         const val DANAR_PACKET__TYPE_COMMAND = 0xA1
         const val DANAR_PACKET__TYPE_RESPONSE = 0xB2
+
         const val DANAR_PACKET__TYPE_NOTIFY = 0xC3
 
         const val DANAR_PACKET__OPCODE_ENCRYPTION__PUMP_CHECK = 0x00

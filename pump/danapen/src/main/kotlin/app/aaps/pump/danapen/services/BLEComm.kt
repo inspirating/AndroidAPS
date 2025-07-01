@@ -92,7 +92,7 @@ class BLEComm @Inject internal constructor(
 
     private var encryption: EncryptionType = EncryptionType.ENCRYPTION_DEFAULT
         set(newValue) {
-            bleEncryption.setEnhancedEncryption(newValue)
+            // bleEncryption.setEnhancedEncryption(newValue)
             field = newValue
         }
     private var isEasyMode: Boolean = false
@@ -525,7 +525,7 @@ class BLEComm @Inject internal constructor(
         val bytes = bleEncryption.buildPlainPacket(
             type = BleEncryption.DANAR_PACKET__TYPE_COMMAND.toByte(),
             opCode = BleEncryption.DANAR_PACKET__OPCODE_ENCRYPTION__PUMP_CHECK.toByte(),
-            params = DanaPENPacket.hexToBytes(deviceName)
+            params = deviceName.toByteArray(Charsets.US_ASCII)
         )
 
         aapsLogger.debug(LTag.PUMPBTCOMM, ">>>>> " + "ENCRYPTION__PUMP_CHECK (0x00)" + " " + DanaPENPacket.toHexString(bytes))
@@ -585,7 +585,7 @@ class BLEComm @Inject internal constructor(
             }
 
             if (danaPump.hwModel == 0x09 || danaPump.hwModel == 0x0A) {
-                bleEncryption.setBle5Key(storedPairingKey.encodeToByteArray())
+                // bleEncryption.setBle5Key(storedPairingKey.encodeToByteArray())
                 aapsLogger.debug(LTag.PUMPBTCOMM, "<<<<< " + "ENCRYPTION__PUMP_CHECK BLE5 (OK)" + " " + DanaPENPacket.toHexString(decryptedBuffer))
                 // Dana-i BLE5 Pump
                 sendBLE5PairingInformation()
@@ -828,7 +828,7 @@ class BLEComm @Inject internal constructor(
         // // aapsLogger.debug(LTag.PUMPBTCOMM, ">>>>> " + DanaPEN_Packet.toHexString(bytes))
         // if (encryption != EncryptionType.ENCRYPTION_DEFAULT)
         //     bytes = bleEncryption.encryptSecondLevelPacket(bytes)
-        val bytes = bleEncryption.buildPlainPacket(
+        var bytes = bleEncryption.buildPlainPacket(
             type = BleEncryption.DANAR_PACKET__TYPE_COMMAND.toByte(),
             opCode = message.opCode.toByte(),
             params = params
