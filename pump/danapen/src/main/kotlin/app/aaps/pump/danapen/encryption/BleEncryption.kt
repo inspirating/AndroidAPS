@@ -10,37 +10,56 @@ import javax.inject.Singleton
 @Singleton
 class BleEncryption @Inject constructor(private val context: Context) {
 
-    fun getEncryptedPacket(opcode: Int, bytes: ByteArray?, deviceName: String?): ByteArray =
-        encryptPacketJni(context, opcode, bytes, deviceName)
+    // fun getEncryptedPacket(opcode: Int, bytes: ByteArray?, deviceName: String?): ByteArray =
+    //     encryptPacketJni(context, opcode, bytes, deviceName)
+    //
+    // fun getDecryptedPacket(bytes: ByteArray): ByteArray? =
+    //     decryptPacketJni(context, bytes)
+    //
+    // fun setPairingKeys(pairingKey: ByteArray, randomPairingKey: ByteArray, randomSyncKey: Byte) {
+    //     setPairingKeysJni(pairingKey, randomPairingKey, randomSyncKey)
+    // }
+    //
+    // fun setBle5Key(ble5Key: ByteArray) {
+    //     setBle5KeyJni(ble5Key)
+    // }
+    //
+    // fun setEnhancedEncryption(securityVersion: EncryptionType) {
+    //     setEnhancedEncryptionJni(securityVersion.ordinal)
+    // }
+    //
+    // fun encryptSecondLevelPacket(bytes: ByteArray): ByteArray =
+    //     encryptSecondLevelPacketJni(context, bytes)
+    //
+    // fun decryptSecondLevelPacket(bytes: ByteArray): ByteArray =
+    //     decryptSecondLevelPacketJni(context, bytes)
 
-    fun getDecryptedPacket(bytes: ByteArray): ByteArray? =
-        decryptPacketJni(context, bytes)
+    // 新增原始包构建方法
+    fun buildPlainPacket(type: Byte, opCode: Byte, params: ByteArray?): ByteArray {
+        val header = byteArrayOf(
+            0xA5.toByte(),  // 起始字节1
+            0xA5.toByte(),  // 起始字节2
+            ((params?.size ?: 0) + 3).toByte()  // 长度字段（操作码1字节 + 参数长度）
+        )
 
-    fun setPairingKeys(pairingKey: ByteArray, randomPairingKey: ByteArray, randomSyncKey: Byte) {
-        setPairingKeysJni(pairingKey, randomPairingKey, randomSyncKey)
+        val body = byteArrayOf(type, opCode) + (params ?: byteArrayOf()) // 空参数处理
+
+        // 计算校验和（示例使用简单求和校验）
+        val checksum = body.fold(0) { acc, byte -> acc + byte.toInt() and 0xFF }
+            .let { (it shr 8).toByte() to it.toByte() }
+
+        return header + body + checksum.first + checksum.second + byteArrayOf(0x5A, 0x5A)
     }
-
-    fun setBle5Key(ble5Key: ByteArray) {
-        setBle5KeyJni(ble5Key)
-    }
-
-    fun setEnhancedEncryption(securityVersion: EncryptionType) {
-        setEnhancedEncryptionJni(securityVersion.ordinal)
-    }
-
-    fun encryptSecondLevelPacket(bytes: ByteArray): ByteArray =
-        encryptSecondLevelPacketJni(context, bytes)
-
-    fun decryptSecondLevelPacket(bytes: ByteArray): ByteArray =
-        decryptSecondLevelPacketJni(context, bytes)
 
     companion object {
 
-        const val DANAR_PACKET__TYPE_ENCRYPTION_REQUEST = 0x01
-        const val DANAR_PACKET__TYPE_ENCRYPTION_RESPONSE = 0x02
+        // const val DANAR_PACKET__TYPE_ENCRYPTION_REQUEST = 0x01
+        // const val DANAR_PACKET__TYPE_ENCRYPTION_RESPONSE = 0x02
+
         const val DANAR_PACKET__TYPE_COMMAND = 0xA1
         const val DANAR_PACKET__TYPE_RESPONSE = 0xB2
         const val DANAR_PACKET__TYPE_NOTIFY = 0xC3
+
         const val DANAR_PACKET__OPCODE_ENCRYPTION__PUMP_CHECK = 0x00
         const val DANAR_PACKET__OPCODE_ENCRYPTION__TIME_INFORMATION = 0x01
         const val DANAR_PACKET__OPCODE_ENCRYPTION__CHECK_PASSKEY = 0xD0
@@ -137,16 +156,17 @@ class BleEncryption @Inject constructor(private val context: Context) {
         const val DANAR_PACKET__OPCODE_ETC__SET_HISTORY_SAVE = 0xE0
         const val DANAR_PACKET__OPCODE_ETC__KEEP_CONNECTION = 0xFF
 
-        init {
-            System.loadLibrary("BleEncryption")
-        }
+        // init {
+        //     System.loadLibrary("BleEncryption")
+        // }
     }
 
-    private external fun encryptPacketJni(context: Any, opcode: Int, bytes: ByteArray?, deviceName: String?): ByteArray
-    private external fun decryptPacketJni(context: Any, bytes: ByteArray): ByteArray?
-    private external fun setPairingKeysJni(pairingKey: ByteArray, randomPairingKey: ByteArray, randomSyncKey: Byte)
-    private external fun setBle5KeyJni(ble5Key: ByteArray)
-    private external fun setEnhancedEncryptionJni(securityVersion: Int)
-    private external fun encryptSecondLevelPacketJni(context: Any, bytes: ByteArray): ByteArray
-    private external fun decryptSecondLevelPacketJni(context: Any, bytes: ByteArray): ByteArray
+    // private external fun encryptPacketJni(context: Any, opcode: Int, bytes: ByteArray?, deviceName: String?): ByteArray
+    // private external fun decryptPacketJni(context: Any, bytes: ByteArray): ByteArray?
+    // private external fun setPairingKeysJni(pairingKey: ByteArray, randomPairingKey: ByteArray, randomSyncKey: Byte)
+    // private external fun setBle5KeyJni(ble5Key: ByteArray)
+    // private external fun setEnhancedEncryptionJni(securityVersion: Int)
+    // private external fun encryptSecondLevelPacketJni(context: Any, bytes: ByteArray): ByteArray
+    // private external fun decryptSecondLevelPacketJni(context: Any, bytes: ByteArray): ByteArray
+
 }

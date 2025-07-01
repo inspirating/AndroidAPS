@@ -400,13 +400,13 @@ class BLEComm @Inject internal constructor(
         var inputBuffer: ByteArray?
 
         // decrypt 2nd level after successful connection
-        val incomingBuffer =
-            if (isConnected && (encryption == EncryptionType.ENCRYPTION_RSv3 || encryption == EncryptionType.ENCRYPTION_BLE5))
-                bleEncryption.decryptSecondLevelPacket(receivedData).also {
-                    encryptedDataRead = true
-                    preferences.put(DanaLongKey.DanaRsLastClearKeyRequest, 0L)
-                }
-            else receivedData
+        val incomingBuffer = receivedData
+            // if (isConnected && (encryption == EncryptionType.ENCRYPTION_RSv3 || encryption == EncryptionType.ENCRYPTION_BLE5))
+            //     bleEncryption.decryptSecondLevelPacket(receivedData).also {
+            //         encryptedDataRead = true
+            //         preferences.put(DanaLongKey.DanaRsLastClearKeyRequest, 0L)
+            //     }
+            // else receivedData
         addToReadBuffer(incomingBuffer)
         //aapsLogger.debug(LTag.PUMPBTCOMM, "incomingBuffer " + DanaPEN_Packet.toHexString(incomingBuffer))
 
@@ -464,7 +464,8 @@ class BLEComm @Inject internal constructor(
                 // now we have encrypted packet in inputBuffer
 
                 // decrypt the packet
-                val decrypted = bleEncryption.getDecryptedPacket(inputBuffer)
+                // val decrypted = bleEncryption.getDecryptedPacket(inputBuffer)
+                val decrypted = inputBuffer
                 decrypted?.let { decryptedBuffer ->
                     if (decryptedBuffer[0] == BleEncryption.DANAR_PACKET__TYPE_ENCRYPTION_RESPONSE.toByte()) {
                         when (decryptedBuffer[1]) {
@@ -520,7 +521,13 @@ class BLEComm @Inject internal constructor(
             uiInteraction.addNotification(Notification.DEVICE_NOT_PAIRED, rh.gs(R.string.pairfirst), Notification.URGENT)
             return
         }
-        val bytes = bleEncryption.getEncryptedPacket(BleEncryption.DANAR_PACKET__OPCODE_ENCRYPTION__PUMP_CHECK, null, deviceName)
+        // val bytes = bleEncryption.getEncryptedPacket(BleEncryption.DANAR_PACKET__OPCODE_ENCRYPTION__PUMP_CHECK, null, deviceName)
+        val bytes = bleEncryption.buildPlainPacket(
+            type = BleEncryption.DANAR_PACKET__TYPE_COMMAND.toByte(),
+            opCode = BleEncryption.DANAR_PACKET__OPCODE_ENCRYPTION__PUMP_CHECK.toByte(),
+            params = DanaPENPacket.hexToBytes(deviceName)
+        )
+
         aapsLogger.debug(LTag.PUMPBTCOMM, ">>>>> " + "ENCRYPTION__PUMP_CHECK (0x00)" + " " + DanaPENPacket.toHexString(bytes))
         writeCharacteristicNoResponse(uartWriteBTGattChar, bytes)
     }
@@ -608,7 +615,13 @@ class BLEComm @Inject internal constructor(
     // 2nd packet v1 check passkey
     private fun sendPasskeyCheck(pairingKey: String) {
         val encodedPairingKey = DanaPENPacket.hexToBytes(pairingKey)
-        val bytes = bleEncryption.getEncryptedPacket(BleEncryption.DANAR_PACKET__OPCODE_ENCRYPTION__CHECK_PASSKEY, encodedPairingKey, null)
+        // val bytes = bleEncryption.getEncryptedPacket(BleEncryption.DANAR_PACKET__OPCODE_ENCRYPTION__CHECK_PASSKEY, encodedPairingKey, null)
+        val bytes = bleEncryption.buildPlainPacket(
+            type = BleEncryption.DANAR_PACKET__TYPE_COMMAND.toByte(),
+            opCode = BleEncryption.DANAR_PACKET__OPCODE_ENCRYPTION__CHECK_PASSKEY.toByte(),
+            params = encodedPairingKey
+        )
+
         aapsLogger.debug(LTag.PUMPBTCOMM, ">>>>> " + "ENCRYPTION__CHECK_PASSKEY" + " " + DanaPENPacket.toHexString(bytes))
         writeCharacteristicNoResponse(uartWriteBTGattChar, bytes)
     }
@@ -645,14 +658,26 @@ class BLEComm @Inject internal constructor(
     // 2nd packet BLE5
     private fun sendBLE5PairingInformation() {
         val params = ByteArray(4) { 0.toByte() }
-        val bytes: ByteArray = bleEncryption.getEncryptedPacket(BleEncryption.DANAR_PACKET__OPCODE_ENCRYPTION__TIME_INFORMATION, params, null)
+        // val bytes: ByteArray = bleEncryption.getEncryptedPacket(BleEncryption.DANAR_PACKET__OPCODE_ENCRYPTION__TIME_INFORMATION, params, null)
+        val bytes = bleEncryption.buildPlainPacket(
+            type = BleEncryption.DANAR_PACKET__TYPE_COMMAND.toByte(),
+            opCode = BleEncryption.DANAR_PACKET__OPCODE_ENCRYPTION__TIME_INFORMATION.toByte(),
+            params = params
+        )
+
         aapsLogger.debug(LTag.PUMPBTCOMM, ">>>>> " + "ENCRYPTION__TIME_INFORMATION BLE5" + " " + DanaPENPacket.toHexString(bytes))
         writeCharacteristicNoResponse(uartWriteBTGattChar, bytes)
     }
 
     private fun sendV3PairingInformation(requestNewPairing: Int) {
         val params = byteArrayOf(requestNewPairing.toByte())
-        val bytes: ByteArray = bleEncryption.getEncryptedPacket(BleEncryption.DANAR_PACKET__OPCODE_ENCRYPTION__TIME_INFORMATION, params, null)
+        // val bytes: ByteArray = bleEncryption.getEncryptedPacket(BleEncryption.DANAR_PACKET__OPCODE_ENCRYPTION__TIME_INFORMATION, params, null)
+        val bytes = bleEncryption.buildPlainPacket(
+            type = BleEncryption.DANAR_PACKET__TYPE_COMMAND.toByte(),
+            opCode = BleEncryption.DANAR_PACKET__OPCODE_ENCRYPTION__TIME_INFORMATION.toByte(),
+            params = params
+        )
+
         aapsLogger.debug(LTag.PUMPBTCOMM, ">>>>> " + "ENCRYPTION__TIME_INFORMATION" + " " + DanaPENPacket.toHexString(bytes))
         writeCharacteristicNoResponse(uartWriteBTGattChar, bytes)
     }
@@ -706,7 +731,13 @@ class BLEComm @Inject internal constructor(
 
     // 3rd packet v1 existing pairing
     private fun sendTimeInfo() {
-        val bytes = bleEncryption.getEncryptedPacket(BleEncryption.DANAR_PACKET__OPCODE_ENCRYPTION__TIME_INFORMATION, null, null)
+        // val bytes = bleEncryption.getEncryptedPacket(BleEncryption.DANAR_PACKET__OPCODE_ENCRYPTION__TIME_INFORMATION, null, null)
+        val bytes = bleEncryption.buildPlainPacket(
+            type = BleEncryption.DANAR_PACKET__TYPE_COMMAND.toByte(),
+            opCode = BleEncryption.DANAR_PACKET__OPCODE_ENCRYPTION__TIME_INFORMATION.toByte(),
+            params = null
+        )
+
         aapsLogger.debug(LTag.PUMPBTCOMM, ">>>>> " + "ENCRYPTION__TIME_INFORMATION" + " " + DanaPENPacket.toHexString(bytes))
         writeCharacteristicNoResponse(uartWriteBTGattChar, bytes)
     }
@@ -716,7 +747,13 @@ class BLEComm @Inject internal constructor(
         // Start activity which is waiting 20sec
         // On pump pairing request is displayed and is waiting for conformation
         context.startActivity(Intent(context, PairingHelperActivity::class.java).also { it.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) })
-        val bytes = bleEncryption.getEncryptedPacket(BleEncryption.DANAR_PACKET__OPCODE_ENCRYPTION__PASSKEY_REQUEST, null, null)
+        // val bytes = bleEncryption.getEncryptedPacket(BleEncryption.DANAR_PACKET__OPCODE_ENCRYPTION__PASSKEY_REQUEST, null, null)
+        val bytes = bleEncryption.buildPlainPacket(
+            type = BleEncryption.DANAR_PACKET__TYPE_COMMAND.toByte(),
+            opCode = BleEncryption.DANAR_PACKET__OPCODE_ENCRYPTION__PASSKEY_REQUEST.toByte(),
+            params = null
+        )
+
         aapsLogger.debug(LTag.PUMPBTCOMM, ">>>>> " + "ENCRYPTION__PASSKEY_REQUEST" + " " + DanaPENPacket.toHexString(bytes))
         writeCharacteristicNoResponse(uartWriteBTGattChar, bytes)
     }
@@ -756,7 +793,13 @@ class BLEComm @Inject internal constructor(
 
     // 3rd packet Easy menu pump
     private fun sendEasyMenuCheck() {
-        val bytes: ByteArray = bleEncryption.getEncryptedPacket(BleEncryption.DANAR_PACKET__OPCODE_ENCRYPTION__GET_EASY_MENU_CHECK, null, null)
+        // val bytes: ByteArray = bleEncryption.getEncryptedPacket(BleEncryption.DANAR_PACKET__OPCODE_ENCRYPTION__GET_EASY_MENU_CHECK, null, null)
+        val bytes = bleEncryption.buildPlainPacket(
+            type = BleEncryption.DANAR_PACKET__TYPE_COMMAND.toByte(),
+            opCode = BleEncryption.DANAR_PACKET__OPCODE_ENCRYPTION__GET_EASY_MENU_CHECK.toByte(),
+            params = null
+        )
+
         writeCharacteristicNoResponse(uartWriteBTGattChar, bytes)
     }
 
@@ -781,10 +824,16 @@ class BLEComm @Inject internal constructor(
             return
         }
         aapsLogger.debug(LTag.PUMPBTCOMM, ">>>>> " + message.friendlyName + " " + DanaPENPacket.toHexString(command) + " " + DanaPENPacket.toHexString(params))
-        var bytes = bleEncryption.getEncryptedPacket(message.opCode, params, null)
-        // aapsLogger.debug(LTag.PUMPBTCOMM, ">>>>> " + DanaPEN_Packet.toHexString(bytes))
-        if (encryption != EncryptionType.ENCRYPTION_DEFAULT)
-            bytes = bleEncryption.encryptSecondLevelPacket(bytes)
+        // var bytes = bleEncryption.getEncryptedPacket(message.opCode, params, null)
+        // // aapsLogger.debug(LTag.PUMPBTCOMM, ">>>>> " + DanaPEN_Packet.toHexString(bytes))
+        // if (encryption != EncryptionType.ENCRYPTION_DEFAULT)
+        //     bytes = bleEncryption.encryptSecondLevelPacket(bytes)
+        val bytes = bleEncryption.buildPlainPacket(
+            type = BleEncryption.DANAR_PACKET__TYPE_COMMAND.toByte(),
+            opCode = message.opCode.toByte(),
+            params = params
+        )
+
         // If there is another message not completely sent, add to queue only
         if (mSendQueue.isNotEmpty()) {
             // Split to parts per 20 bytes max
