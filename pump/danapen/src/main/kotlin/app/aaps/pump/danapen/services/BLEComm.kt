@@ -638,21 +638,21 @@ class BLEComm @Inject internal constructor(
     // 2nd packet v3
     // 0x00 Start encryption, 0x01 Request pairing
     private fun sendV3PairingInformation() {
-        val randomPairingKey = preferences.get(DanaString2Key.DanaRsV3RandomParingKey, danaPENPlugin.mDeviceName)
-        val pairingKey = preferences.get(DanaString2Key.DanaRsV3ParingKey, danaPENPlugin.mDeviceName)
-        if (randomPairingKey.isNotEmpty() && pairingKey.isNotEmpty()) {
-            val tPairingKey = Base64.decode(pairingKey, Base64.DEFAULT)
-            val tRandomPairingKey = Base64.decode(randomPairingKey, Base64.DEFAULT)
-            var tRandomSyncKey: Byte = 0
-            val randomSyncKey = preferences.get(DanaString2Key.DanaRsV3RandomSyncKey, danaPENPlugin.mDeviceName)
-            if (randomSyncKey.isNotEmpty()) {
-                tRandomSyncKey = randomSyncKey.toInt(16).toByte()
-            }
-            bleEncryption.setPairingKeys(tPairingKey, tRandomPairingKey, tRandomSyncKey)
-            sendV3PairingInformation(0)
-        } else {
-            sendV3PairingInformation(1)
-        }
+        // val randomPairingKey = preferences.get(DanaString2Key.DanaRsV3RandomParingKey, danaPENPlugin.mDeviceName)
+        // val pairingKey = preferences.get(DanaString2Key.DanaRsV3ParingKey, danaPENPlugin.mDeviceName)
+        // if (randomPairingKey.isNotEmpty() && pairingKey.isNotEmpty()) {
+        //     val tPairingKey = Base64.decode(pairingKey, Base64.DEFAULT)
+        //     val tRandomPairingKey = Base64.decode(randomPairingKey, Base64.DEFAULT)
+        //     var tRandomSyncKey: Byte = 0
+        //     val randomSyncKey = preferences.get(DanaString2Key.DanaRsV3RandomSyncKey, danaPENPlugin.mDeviceName)
+        //     if (randomSyncKey.isNotEmpty()) {
+        //         tRandomSyncKey = randomSyncKey.toInt(16).toByte()
+        //     }
+        //     bleEncryption.setPairingKeys(tPairingKey, tRandomPairingKey, tRandomSyncKey)
+        //     sendV3PairingInformation(0)
+        // } else {
+        //     sendV3PairingInformation(1)
+        // }
     }
 
     // 2nd packet BLE5
@@ -760,15 +760,15 @@ class BLEComm @Inject internal constructor(
 
     // 3rd packet v3 : only after entering PIN codes
     fun finishV3Pairing() {
-        val randomPairingKey = preferences.get(DanaString2Key.DanaRsV3RandomParingKey, danaPENPlugin.mDeviceName)
-        val pairingKey = preferences.get(DanaString2Key.DanaRsV3ParingKey, danaPENPlugin.mDeviceName)
-        if (randomPairingKey.isNotEmpty() && pairingKey.isNotEmpty()) {
-            val tPairingKey = Base64.decode(pairingKey, Base64.DEFAULT)
-            val tRandomPairingKey = Base64.decode(randomPairingKey, Base64.DEFAULT)
-            val tRandomSyncKey: Byte = 0
-            bleEncryption.setPairingKeys(tPairingKey, tRandomPairingKey, tRandomSyncKey)
-            sendV3PairingInformation(0)
-        } else throw java.lang.IllegalStateException("This should not be reached")
+        // val randomPairingKey = preferences.get(DanaString2Key.DanaRsV3RandomParingKey, danaPENPlugin.mDeviceName)
+        // val pairingKey = preferences.get(DanaString2Key.DanaRsV3ParingKey, danaPENPlugin.mDeviceName)
+        // if (randomPairingKey.isNotEmpty() && pairingKey.isNotEmpty()) {
+        //     val tPairingKey = Base64.decode(pairingKey, Base64.DEFAULT)
+        //     val tRandomPairingKey = Base64.decode(randomPairingKey, Base64.DEFAULT)
+        //     val tRandomSyncKey: Byte = 0
+        //     bleEncryption.setPairingKeys(tPairingKey, tRandomPairingKey, tRandomSyncKey)
+        //     sendV3PairingInformation(0)
+        // } else throw java.lang.IllegalStateException("This should not be reached")
     }
 
     // 2nd or 3rd packet v1 response
