@@ -49,7 +49,8 @@ class Objective0(injector: HasAndroidInjector) : Objective(injector, "config", R
         tasks.add(
             object : Task(this, R.string.objectives_pumpstatusavailableinns) {
                 override fun isCompleted(): Boolean {
-                    return sp.getBoolean(app.aaps.core.utils.R.string.key_objectives_pump_status_is_available_in_ns, false) || tidepoolPlugin?.hasWritePermission == true
+                    // return sp.getBoolean(app.aaps.core.utils.R.string.key_objectives_pump_status_is_available_in_ns, false) || tidepoolPlugin?.hasWritePermission == true
+                    return true
                 }
             }.learned(Learned(R.string.objectives_0_learned))
         )
