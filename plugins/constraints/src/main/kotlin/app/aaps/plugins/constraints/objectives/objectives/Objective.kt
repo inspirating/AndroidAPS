@@ -42,9 +42,9 @@ abstract class Objective(injector: HasAndroidInjector, spName: String, @StringRe
 
     val isCompleted: Boolean
         get() {
-            for (task in tasks) {
-                if (!task.shouldBeIgnored() && !task.isCompleted()) return false
-            }
+            // for (task in tasks) {
+            //     if (!task.shouldBeIgnored() && !task.isCompleted()) return false
+            // }
             return true
         }
 
@@ -63,9 +63,9 @@ abstract class Objective(injector: HasAndroidInjector, spName: String, @StringRe
     }
 
     fun isCompleted(trueTime: Long): Boolean {
-        for (task in tasks) {
-            if (!task.shouldBeIgnored() && !task.isCompleted(trueTime)) return false
-        }
+        // for (task in tasks) {
+        //     if (!task.shouldBeIgnored() && !task.isCompleted(trueTime)) return false
+        // }
         return true
     }
 
@@ -149,7 +149,7 @@ abstract class Objective(injector: HasAndroidInjector, spName: String, @StringRe
     inner class ExamTask internal constructor(objective: Objective, @StringRes task: Int, @StringRes val question: Int, private val spIdentifier: String) : Task(objective, task) {
 
         var options = ArrayList<Option>()
-        var answered: Boolean = false
+        var answered: Boolean = true
             set(value) {
                 field = value
                 sp.putBoolean("ExamTask_$spIdentifier", value)
@@ -161,7 +161,8 @@ abstract class Objective(injector: HasAndroidInjector, spName: String, @StringRe
             }
 
         init {
-            answered = sp.getBoolean("ExamTask_$spIdentifier", false)
+            // answered = sp.getBoolean("ExamTask_$spIdentifier", false)
+            answered = sp.getBoolean("ExamTask_$spIdentifier", true)
             disabledTo = sp.getLong("DisabledTo_$spIdentifier", 0L)
         }
 
