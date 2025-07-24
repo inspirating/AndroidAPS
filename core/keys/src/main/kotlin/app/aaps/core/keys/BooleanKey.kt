@@ -41,7 +41,7 @@ enum class BooleanKey(
     BgSourceUploadToNs("dexcomg5_nsupload", true, defaultedBySM = true, hideParentScreenIfHidden = true),
     BgSourceCreateSensorChange("dexcom_lognssensorchange", true, defaultedBySM = true),
 
-    ApsUseDynamicSensitivity("use_dynamic_sensitivity", false),
+    ApsUseDynamicSensitivity("use_dynamic_sensitivity", true),
     ApsUseAutosens("openapsama_useautosens", true, defaultedBySM = true, negativeDependency = ApsUseDynamicSensitivity), // change from default false
     ApsUseSmb("use_smb", true, defaultedBySM = true), // change from default false
     ApsUseSmbWithHighTt("enableSMB_with_high_temptarget", false, defaultedBySM = true, dependency = ApsUseSmb),
@@ -53,22 +53,22 @@ enum class BooleanKey(
     ApsSensitivityRaisesTarget("sensitivity_raises_target", true, defaultedBySM = true),
     ApsResistanceLowersTarget("resistance_lowers_target", true, defaultedBySM = true), // change from default false
     ApsAlwaysUseShortDeltas("always_use_shortavg", false, defaultedBySM = true, hideParentScreenIfHidden = true),
-    ApsDynIsfAdjustSensitivity("dynisf_adjust_sensitivity", false, defaultedBySM = true, dependency = ApsUseDynamicSensitivity), // change from default false
+    ApsDynIsfAdjustSensitivity("dynisf_adjust_sensitivity", true, defaultedBySM = true, dependency = ApsUseDynamicSensitivity), // change from default false
     ApsAmaAutosensAdjustTargets("autosens_adjust_targets", true, defaultedBySM = true),
-    ApsAutoIsfHighTtRaisesSens("high_temptarget_raises_sensitivity", false, defaultedBySM = true),
+    ApsAutoIsfHighTtRaisesSens("high_temptarget_raises_sensitivity", true, defaultedBySM = true),
     ApsAutoIsfLowTtLowersSens("low_temptarget_lowers_sensitivity", false, defaultedBySM = true),
-    ApsUseAutoIsfWeights("openapsama_enable_autoISF", false, defaultedBySM = true),
+    ApsUseAutoIsfWeights("openapsama_enable_autoISF", true, defaultedBySM = true),
     ApsAutoIsfSmbOnEvenTarget("Enable alternative activation of SMB always", false, defaultedBySM = true),   // profile target
 
     MaintenanceEnableFabric("enable_fabric2", true, defaultedBySM = true, hideParentScreenIfHidden = true),
 
     MaintenanceEnableExportSettingsAutomation("enable_unattended_export", false, defaultedBySM = false),
 
-    AutotuneAutoSwitchProfile("autotune_auto", false),
+    AutotuneAutoSwitchProfile("autotune_auto", true),
     AutotuneCategorizeUamAsBasal("categorize_uam_as_basal", false),
-    AutotuneTuneInsulinCurve("autotune_tune_insulin_curve", false),
-    AutotuneCircadianIcIsf("autotune_circadian_ic_isf", false),
-    AutotuneAdditionalLog("autotune_additional_log", false),
+    AutotuneTuneInsulinCurve("autotune_tune_insulin_curve", true),
+    AutotuneCircadianIcIsf("autotune_circadian_ic_isf", true),
+    AutotuneAdditionalLog("autotune_additional_log", true),
 
     SmsAllowRemoteCommands("smscommunicator_remotecommandsallowed", false),
     SmsReportPumpUnreachable("smscommunicator_report_pump_unreachable", true),
