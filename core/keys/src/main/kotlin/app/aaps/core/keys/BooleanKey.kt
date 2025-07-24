@@ -44,7 +44,7 @@ enum class BooleanKey(
     ApsUseDynamicSensitivity("use_dynamic_sensitivity", true),
     ApsUseAutosens("openapsama_useautosens", true, defaultedBySM = true, negativeDependency = ApsUseDynamicSensitivity), // change from default false
     ApsUseSmb("use_smb", true, defaultedBySM = true), // change from default false
-    ApsUseSmbWithHighTt("enableSMB_with_high_temptarget", false, defaultedBySM = true, dependency = ApsUseSmb),
+    ApsUseSmbWithHighTt("enableSMB_with_high_temptarget", true, defaultedBySM = true, dependency = ApsUseSmb),
     ApsUseSmbAlways("enableSMB_always", true, defaultedBySM = true, dependency = ApsUseSmb), // change from default false
     ApsUseSmbWithCob("enableSMB_with_COB", true, defaultedBySM = true, dependency = ApsUseSmb), // change from default false
     ApsUseSmbWithLowTt("enableSMB_with_temptarget", true, defaultedBySM = true, dependency = ApsUseSmb), // change from default false
@@ -52,13 +52,13 @@ enum class BooleanKey(
     ApsUseUam("use_uam", true, defaultedBySM = true), // change from default false
     ApsSensitivityRaisesTarget("sensitivity_raises_target", true, defaultedBySM = true),
     ApsResistanceLowersTarget("resistance_lowers_target", true, defaultedBySM = true), // change from default false
-    ApsAlwaysUseShortDeltas("always_use_shortavg", false, defaultedBySM = true, hideParentScreenIfHidden = true),
+    ApsAlwaysUseShortDeltas("always_use_shortavg", true, defaultedBySM = true, hideParentScreenIfHidden = true),
     ApsDynIsfAdjustSensitivity("dynisf_adjust_sensitivity", true, defaultedBySM = true, dependency = ApsUseDynamicSensitivity), // change from default false
     ApsAmaAutosensAdjustTargets("autosens_adjust_targets", true, defaultedBySM = true),
     ApsAutoIsfHighTtRaisesSens("high_temptarget_raises_sensitivity", true, defaultedBySM = true),
     ApsAutoIsfLowTtLowersSens("low_temptarget_lowers_sensitivity", false, defaultedBySM = true),
     ApsUseAutoIsfWeights("openapsama_enable_autoISF", true, defaultedBySM = true),
-    ApsAutoIsfSmbOnEvenTarget("Enable alternative activation of SMB always", false, defaultedBySM = true),   // profile target
+    ApsAutoIsfSmbOnEvenTarget("Enable alternative activation of SMB always", true, defaultedBySM = true),   // profile target
 
     MaintenanceEnableFabric("enable_fabric2", true, defaultedBySM = true, hideParentScreenIfHidden = true),
 
