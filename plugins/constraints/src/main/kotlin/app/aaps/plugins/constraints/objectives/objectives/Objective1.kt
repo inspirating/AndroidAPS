@@ -15,22 +15,26 @@ class Objective1 @Inject constructor(injector: HasAndroidInjector) : Objective(i
     init {
         tasks.add(object : Task(this, R.string.objectives_useprofileswitch) {
             override fun isCompleted(): Boolean {
-                return sp.getBoolean(app.aaps.core.utils.R.string.key_objectiveuseprofileswitch, false)
+                // return sp.getBoolean(app.aaps.core.utils.R.string.key_objectiveuseprofileswitch, false)
+                return true
             }
         })
         tasks.add(object : Task(this, R.string.objectives_usedisconnectpump) {
             override fun isCompleted(): Boolean {
-                return sp.getBoolean(app.aaps.core.utils.R.string.key_objectiveusedisconnect, false)
+                // return sp.getBoolean(app.aaps.core.utils.R.string.key_objectiveusedisconnect, false)
+                return true
             }
         }.hint(Hint(R.string.disconnectpump_hint)))
         tasks.add(object : Task(this, R.string.objectives_usereconnectpump) {
             override fun isCompleted(): Boolean {
-                return sp.getBoolean(app.aaps.core.utils.R.string.key_objectiveusereconnect, false)
+                // return sp.getBoolean(app.aaps.core.utils.R.string.key_objectiveusereconnect, false)
+                return true
             }
         }.hint(Hint(R.string.disconnectpump_hint)))
         tasks.add(object : Task(this, R.string.objectives_usetemptarget) {
             override fun isCompleted(): Boolean {
-                return sp.getBoolean(app.aaps.core.utils.R.string.key_objectiveusetemptarget, false)
+                // return sp.getBoolean(app.aaps.core.utils.R.string.key_objectiveusetemptarget, false)
+                return true
             }
         }.hint(Hint(R.string.usetemptarget_hint)))
         tasks.add(object : Task(this, R.string.objectives_useactions) {
