@@ -68,7 +68,7 @@ enum class BooleanKey(
     AutotuneCategorizeUamAsBasal("categorize_uam_as_basal", false),
     AutotuneTuneInsulinCurve("autotune_tune_insulin_curve", true),
     AutotuneCircadianIcIsf("autotune_circadian_ic_isf", true),
-    AutotuneAdditionalLog("autotune_additional_log", true),
+    AutotuneAdditionalLog("autotune_additional_log", false),
 
     SmsAllowRemoteCommands("smscommunicator_remotecommandsallowed", false),
     SmsReportPumpUnreachable("smscommunicator_report_pump_unreachable", true),
