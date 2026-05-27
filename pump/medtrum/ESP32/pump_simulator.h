@@ -207,9 +207,8 @@ public:
             uint8_t wasActivated = metaPrefs.getUChar("activated", 0);
             metaPrefs.end();
             if (wasActivated) {
-                patchState = PatchState::EXPIRED;
                 everActivated = true;
-                Logger::info("检测到patch曾激活过, 设置状态为EXPIRED, 避免iOS跳转到Serial Number页面");
+                Logger::info("检测到patch曾激活过, 等待AUTH后重置为FILLED");
             } else {
                 Logger::info("首次启动: 等待激活流程");
             }
@@ -490,18 +489,19 @@ private:
         if (pendingBleDisconnect) {
             pendingBleDisconnect = false;
             Logger::info("执行延迟BLE断开并重置为初始状态");
-            if (everActivated) {
-                patchState = PatchState::EXPIRED;
-                Logger::info("patch曾激活过, 设置状态为EXPIRED而非FILLED");
-            } else {
-                patchState = PatchState::FILLED;
-            }
+            patchState = PatchState::FILLED;
+            everActivated = false;
+            patchId = 0;
+            Preferences metaPrefs;
+            metaPrefs.begin("pumpMeta", false);
+            metaPrefs.remove("activated");
+            metaPrefs.end();
             simulatorState = SimulatorState::INITIALIZING;
             gattServer.advertisingSuspended = true;
             BLEDevice::stopAdvertising();
             gattServer.disconnectAll();
-            advertisingResumeTime = 0;
-            Logger::info("BLE广播已永久停止, 需重启ESP32才能再次连接");
+            advertisingResumeTime = millis() + 5000;
+            Logger::info("BLE广播将在5秒后恢复, 允许重新连接");
         }
 
         if (gattServer.advertisingSuspended && advertisingResumeTime > 0 && millis() > advertisingResumeTime) {
@@ -657,11 +657,7 @@ private:
 
     std::vector<uint8_t> buildSynchronizeData() {
         std::vector<uint8_t> data;
-        PatchState reportedState = patchState;
-        if (everActivated && static_cast<uint8_t>(reportedState) < static_cast<uint8_t>(PatchState::PRIMING)) {
-            reportedState = PatchState::EXPIRED;
-        }
-        data.push_back(static_cast<uint8_t>(reportedState));
+        data.push_back(static_cast<uint8_t>(patchState));
 
         uint16_t fieldMask = 0;
         if (patchState == PatchState::SUSPENDED) {
@@ -807,6 +803,15 @@ private:
             data.push_back(100);
             data.push_back(0);
         }
+
+        Logger::info("SYNC_DATA: state=" + String(getStateName(patchState)) +
+            " fieldMask=0x" + String(fieldMask, HEX) +
+            " patchId=" + String(patchId) +
+            " patchStartTime=" + String(patchStartTime) +
+            " basalSeq=" + String(basalSequence) +
+            " basalRate=" + String(currentBasalRate) +
+            " reservoir=" + String(reservoir) +
+            " size=" + String(data.size()));
 
         return data;
     }
@@ -1335,6 +1340,44 @@ private:
         }
 
         Logger::info("认证成功!");
+
+        if (patchState == PatchState::STOPPED || patchState == PatchState::EXPIRED ||
+            patchState == PatchState::OCCLUSION || patchState == PatchState::RESERVOIR_EMPTY ||
+            patchState == PatchState::PATCH_FAULT || patchState == PatchState::PATCH_FAULT2 ||
+            patchState == PatchState::BASE_FAULT || patchState == PatchState::BATTERY_OUT ||
+            patchState == PatchState::NO_CALIBRATION) {
+            Logger::info("检测到终态: " + String(getStateName(patchState)) + ", 重置为FILLED以允许新连接");
+            patchState = PatchState::FILLED;
+        }
+
+        if (!everActivated || patchId == 0xFFFF || patchId == 0) {
+            Logger::info("AUTH: 重置关键状态变量 (patchId=" + String(patchId) + " everActivated=" + String(everActivated) + ")");
+        }
+        everActivated = false;
+        patchId = 0;
+        patchStartTime = 0;
+        totalElapsedTime = 0;
+        primeProgress = 0;
+        reservoir = MAX_RESERVOIR;
+        activeInsulin = 0;
+        hourlyDelivered = 0;
+        dailyDelivered = 0;
+        basalSequence = 0;
+        patchStateDirty = true;
+        Preferences metaPrefs;
+        metaPrefs.begin("pumpMeta", false);
+        metaPrefs.remove("activated");
+        metaPrefs.end();
+
+        PatchState targetState = patchState;
+        patchState = PatchState::STOPPED;
+        std::vector<uint8_t> stoppedData = buildSynchronizeData();
+        sendNotificationPacket(stoppedData);
+        Logger::info("AUTH: 发送STOPPED通知以清除Android端patchPrimed标记");
+        delay(100);
+        patchState = targetState;
+        lastNotifiedState = PatchState::NONE;
+        Logger::info("AUTH: 状态已恢复为 " + String(getStateName(patchState)) + ", lastNotifiedState重置以强制重新通知");
 
         uint8_t responseData[5] = {0x02, DEVICE_TYPE, 1, 0, 0};
         sendResponse(CommandType::AUTH_REQ, seqNum, responseData, 5);
