@@ -1,0 +1,134 @@
+原来基于时间的估算是什么逻辑？
+
+Agent
+
+Thought process
+
+好的，我来详细解释 iOS 端原来的基于时间的估算逻辑。
+
+## iOS 端基于时间的估算逻辑
+整个链条涉及 3 个关键部分：
+
+### 1. 预估总时长 — estimatedDuration(toBolus:)
+在 M640GPumpManager.swift 中：
+
+```
+func estimatedDuration(toBolus 
+units: Double) -> TimeInterval {
+    // 1.5 unit per minute
+    units / 1.5 * TimeInterval
+    (minutes: 1)
+}
+```
+公式 ： 总时长(秒) = 剂量(U) / 1.5 * 60
+
+剂量 预估时长 0.5U 20 秒 1.0U 40 秒 2.0U 80 秒 5.0U 200 秒
+
+这个时长被存入 UnfinalizedDose 的 estimatedEndDate 中。
+
+### 2. 进度计算器 — M640GDoseProgressReporter
+在 M640GDoseProgressReporter.swift 中：
+
+```
+class M640GDoseProgressReporter: 
+DoseProgressTimerEstimator {
+    override var progress: 
+    DoseProgress {
+        let elapsed = -dose.
+        startDate.
+        timeIntervalSinceNow        
+          // 已过时间
+        let duration = dose.
+        estimatedEndDate.
+        timeIntervalSince(dose.
+        startDate)  // 预估总时长
+        let percentComplete = min
+        (elapsed / duration, 
+        1)            // 进度百分比
+        let delivered = pumpManager.
+        roundToSupportedBolusVolume(
+            units: percentComplete 
+            * dose.value
+        )
+        return DoseProgress
+        (deliveredUnits: delivered, 
+        percentComplete: 
+        percentComplete)
+    }
+    // ...
+}
+```
+核心逻辑 ：每次读取 progress 时，用当前时间计算：
+
+```
+进度 = min(已过时间 / 预估总时长, 1.0)
+已输注量 = round(进度 × 总剂量)
+```
+### 3. 定时器触发 — DoseProgressTimerEstimator
+在 DoseProgressTimerEstimator.swift 中：
+
+```
+override func timerParameters() -> 
+(delay: TimeInterval, repeating: 
+TimeInterval) {
+    let timeSinceStart = dose.
+    startDate.timeIntervalSinceNow
+    let timeBetweenPulses = 
+    TimeInterval.seconds
+    (2)       // 每 2 秒触发一次
+    let delayUntilNextPulse = 
+    timeBetweenPulses - 
+    timeSinceStart.remainder
+    (dividingBy: timeBetweenPulses)
+    return (delay: 
+    delayUntilNextPulse, repeating: 
+    timeBetweenPulses)
+}
+```
+定时器每 2 秒触发一次 ，调用 notify() 通知所有观察者（即 UI 组件），UI 重新读取 progress 属性更新进度条。
+
+### 完整时序举例（1U bolus）
+```
+t=0.0s  → 发起 bolus，
+estimatedEndDate = now + 40s
+          DoseProgressReporter 启动
+          定时器
+
+t=2.0s  → 定时器触发
+          progress: elapsed=2s, 
+          duration=40s → 5%
+          UI 进度条显示 5%
+
+t=4.0s  → 定时器触发
+          progress: elapsed=4s, 
+          duration=40s → 10%
+          UI 进度条显示 10%
+
+...每 2 秒更新一次...
+
+t=40.0s → 定时器触发
+          progress: elapsed=40s, 
+          duration=40s → 100%
+          UI 进度条显示 100%
+```
+### 问题所在
+但 ESP32 实际 3.3 秒就输注完了 ，此时：
+
+```
+t=3.3s  → ESP32 发送完成通知
+          StateSyncer.sync() 调用 
+          updateBolusProgress
+          (completed: true)
+          → bolusState = .noBolus
+          → bolusDose = nil
+          → 进度条消失！
+```
+用户实际看到的是：
+
+```
+t=0s   → 进度条出现 (0%)
+t=2s   → 进度条更新到 5%
+t=3.3s → 进度条消失 ❌  (本该到 40s 才结
+束)
+```
+这就是"很快就消失了"的根本原因 — iOS 以为要 40 秒，ESP32 3.3 秒就干完了 ，iOS 收到完成通知后直接关闭了进度条。

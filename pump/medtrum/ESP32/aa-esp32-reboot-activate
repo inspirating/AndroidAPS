@@ -1,0 +1,382 @@
+问题很清楚了。ESP32 重启后 patchState 初始化为 FILLED （值=2），而 Swift 端收到 pumpState = filled 后， pumpState.rawValue < PatchState.active.rawValue(32) 为 true，所以需要重新激活。
+
+解决方案：ESP32 启动时直接初始化为 ACTIVE 状态，跳过 FILLED/PRIMING/PRIMED 流程。
+
+ESP32\pump_simulator.h
+
+pump_simulator.h
+ESP32\pump_simulator.h
+
++ 1 - 1
+
+Open Diff
+
+同时更新 setup 中的日志和 simulatorState ：
+
+ESP32\pump_simulator.h
+
+pump_simulator.h
+ESP32\pump_simulator.h
+
++ 1 - 1
+
+Open Diff
+
+现在还要检查 handleActivateRequest ，ESP32 已经是 ACTIVE 状态时收到激活请求是否还能正常处理：
+
+Search codebase for 'handleActivateRequest|ACTIVATE'
+
+ESP32\pump_simulator.h
+
+ESP32\pump_simulator.h
+
+handleActivateRequest 在 patchState == ACTIVE 时不会 return，会继续执行激活流程（重置 reservoir、elapsedTime 等），然后 setPatchState(ACTIVE) 。这没问题。
+
+但还需要确认 Swift 端重连时的流程。当 ESP32 重启后 Swift 重连，Swift 会收到 pumpState = active ，不需要重新激活：
+
+Search codebase for 'reconnect|didConnect|handleConnect'
+
+M640GKit\PumpManager\BluetoothManager.swift
+
+M640GKit\PumpManager\BluetoothManager.swift
+
+现在看 PeripheralManager 中连接建立后如何处理状态同步：
+
+Search codebase for 'handleHeartbeat|sync|pumpState'
+
+M640GKit\PumpManager\PeripheralManager.swift
+
+M640GKit\PumpManager\PeripheralManager.swift
+
+现在完全理解了流程：
+
+1. ESP32 重启 → patchState = FILLED
+2. Swift 重连 → synchronize() → 收到 pumpState = filled(2)
+3. StateSyncer.sync → state.pumpState = .filled
+4. Swift UI 检测到 pumpState.rawValue < active.rawValue(32) → 要求重新激活
+修改后 ESP32 启动就是 ACTIVE ，Swift 重连时收到 pumpState = active(32) ，不需要重新激活。
+
+但还有一个问题：ESP32 重启后 patchId 会变（ patchId = random(65535) + 1 ），Swift 端存储的 patchId 可能不匹配。看看 Swift 端是否校验 patchId ：
+
+Search codebase for 'patchId'
+
+patchId 在 StateSyncer.sync 中会更新： state.patchId = UInt64(storage.patchId).toData(length: 4) 。所以 ESP32 重启后 patchId 变了也没关系，Swift 会自动更新。
+
+但还需要确保 sessionToken 不变。ESP32 重启后 generateSessionToken() 会生成新 token：
+
+Search codebase for 'generateSessionToken|sessionToken'
+
+ESP32\pump_simulator.h
+
+看看 Swift 端认证时是否校验 sessionToken：
+
+Search codebase for 'sessionToken'
+
+Search codebase for 'sessionToken'
+
+M640GKit\PumpManager\M640GPumpManager.swift
+
+现在看 ESP32 端认证时如何处理 sessionToken：
+
+Search codebase for 'handleAuthorize|AUTHORIZE'
+
+Search codebase for 'handleAuth|authenticate|sessionToken'
+
+ESP32\pump_simulator.h
+
+ESP32 认证时校验的是 clientKey （基于 PUMP_SN 计算的），不是 sessionToken 。 sessionToken 是 Swift 端自己生成的，ESP32 端不校验。所以 ESP32 重启后认证不受影响。
+
+现在确认一下修改是否完整。ESP32 重启后的流程：
+
+1. ESP32 启动 → patchState = ACTIVE , simulatorState = RUNNING
+2. Swift 重连 → 认证 → synchronize() → 收到 pumpState = active(32)
+3. StateSyncer.sync → state.pumpState = .active
+4. Swift UI 检测到 pumpState.rawValue >= active.rawValue(32) → 不需要重新激活 ✅
+但还有一个潜在问题：ESP32 重启后 reservoir 被重置为 MAX_RESERVOIR ， activeInsulin 重置为 0。Swift 端存储的 reservoir 值会被覆盖。不过这是模拟器的固有行为，ESP32 没有持久化存储。
+
+验证最终代码：
+
+ESP32\pump_simulator.h
+
+改动完成。
+
+问题原因： ESP32 重启后 patchState 初始化为 FILLED （值=2），Swift 重连时收到 pumpState = filled ，判断 rawValue(2) < active.rawValue(32) → 要求重新激活（走 PRIMING → PRIMED → ACTIVATE 流程）。
+
+修复： ESP32 初始状态改为 ACTIVE （值=32）， simulatorState 改为 RUNNING 。重启后 Swift 重连收到 pumpState = active ，直接跳过激活流程。
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+现在看关键问题： patchActivatedAt 是怎么设置的。
+
+M640GKit\PumpManager\StateSyncer.swift
+
+问题找到了！ state.patchActivatedAt = startTime — ESP32 的 startTime 是 patchStartTime ，在 buildSynchronizeData 中编码。ESP32 重启后 patchStartTime = 389145600 （硬编码的 2026-05-01 附近），但 Swift 端的 patchActivatedAt 是 Date 类型。
+
+让我看 ESP32 的 startTime 是怎么编码的：
+
+ESP32\pump_simulator.h
+
+Search codebase for 'startTime|START_TIME'
+
+Search codebase for 'fromM640GSeconds'
+
+Search codebase for 'func fromM640GSeconds|extension Date'
+
+Common\Date.swift
+
+现在清楚了。ESP32 的 patchStartTime = 389145600 ，Swift 转换后：
+
+```
+Date = 2014-01-01 + 389145600秒 = 
+2014-01-01 + 12.33年 ≈ 2026-05-01
+```
+但问题是： ESP32 重启后 patchStartTime 是固定的 389145600 。如果这个时间远在过去（比如 ESP32 运行很久后重启），Swift 收到的 patchActivatedAt 仍然是那个固定时间。如果 expiryMode = .default ，lifespan = 72小时，从 patchActivatedAt 算起 72 小时后过期。
+
+真正的问题是： ESP32 重启后 patchStartTime 不变，但 patchActivatedAt 是从 startTime 同步来的。如果之前激活后 patchActivatedAt 被设为很久以前的时间，Swift 就会认为 patch 已过期。
+
+解决方案：ESP32 重启时，将 patchStartTime 设为当前时间，而不是硬编码值。
+
+ESP32\pump_simulator.h
+
+389145600 秒 = 从 2014-01-01 起的秒数，对应约 2026-05-01。如果现在是 2026-05-15，这个时间已经是 14 天前了。 expiryMode = .default 时 lifespan = 72 小时 = 3 天，14 天远超 3 天，所以 Swift 判断已过期。
+
+修复：ESP32 启动时用当前时间计算 patchStartTime 。
+
+Search codebase for 'M640G_EPOCH|1388534400|2014'
+
+pump_simulator.h
+ESP32\pump_simulator.h
+
++ 1 - 2
+
+Open Diff
+
+但 ESP32 的 time(nullptr) 需要 NTP 同步才能返回正确时间。让我检查 ESP32 是否有 NTP 同步：
+
+Search codebase for 'NTP|ntp|timeSync|configTime|WiFi'
+
+Search codebase for 'd:\M640GKit\ESP32\*'
+
+Search codebase for 'd:/M640GKit/ESP32/**/*'
+
+M640GKit\ESP32
+
+ESP32\ESP32.ino
+
+ESP32 没有做 NTP 同步， time(nullptr) 返回的是 1970 年的时间戳。需要换一种方式。
+
+更好的方案： 不依赖 ESP32 的系统时间。Swift 端在 synchronize() 时会同步时间，ESP32 可以在收到时间同步后更新 patchStartTime 。但更简单的是：ESP32 启动时，让 patchStartTime 足够新，使得 Swift 认为刚激活。
+
+最简单的方案： ESP32 启动时将 patchStartTime 设为 0（或很小的值），Swift 收到后会用 Date.fromM640GSeconds(0) = 2014-01-01，这更旧了。
+
+不对，应该反过来想。Swift 端在 activatePatch 时会设置 state.patchActivatedAt = Date.now 。但 ESP32 重启后， StateSyncer.sync 会用 startTime 覆盖 patchActivatedAt 。
+
+真正的解决方案： ESP32 重启后，在 buildSynchronizeData 中发送一个足够新的 patchStartTime ，使得 Swift 判断未过期。
+
+但 ESP32 没有正确的时间...让我看看 Swift 端时间同步的流程：
+
+Search codebase for 'handleSetTime|SET_TIME|timeSync'
+
+ESP32\pump_simulator.h
+
+关键发现！ handleSetTimeRequest 会设置 patchStartTime = newTime 。Swift 在 activatePatch 之前会调用 syncTime ：
+
+M640GKit\PumpManager\StateSyncer.swift
+
+Search codebase for 'SetTimePacket'
+
+M640GKit\Packets\SetTimePacket.swift
+
+现在流程完全清楚了：
+
+1. Swift activatePatch → syncTime → 发送 SetTimePacket(date: Date.now) → ESP32 handleSetTimeRequest → patchStartTime = newTime
+2. 然后 activatePatch → 发送 ActivatePacket → ESP32 handleActivateRequest → setPatchState(ACTIVE)
+3. 之后 synchronize() → ESP32 buildSynchronizeData 发送 patchStartTime → Swift state.patchActivatedAt = startTime
+但问题是： ESP32 重启后，Swift 重连时走的是 doAuthorize → synchronize() 流程， 不会调用 syncTime （因为 syncTime 只在 activatePatch 中调用）。
+
+所以 ESP32 重启后 patchStartTime 是旧值（或 time(nullptr) - M640G_BASE_UNIX 的错误值），Swift 收到后 patchActivatedAt 是旧时间，判断已过期。
+
+解决方案： ESP32 在 handleSetTimeRequest 中更新 patchStartTime 。但重连时 Swift 不会发 SetTime 。需要在 synchronize 流程中让 Swift 也同步时间。
+
+但用户说不改 Swift 代码。那只能从 ESP32 端解决。
+
+方案：ESP32 在认证成功后，如果 patchStartTime 是旧的，自动更新为当前时间。 但 ESP32 没有 NTP...
+
+方案2：ESP32 记录上次收到的时间同步，重启后恢复。 但 ESP32 也没有持久化存储（除非用 NVS）。
+
+方案3：ESP32 在 synchronize 响应中，如果 patchState == ACTIVE ，用 totalElapsedTime 来计算一个合理的 patchStartTime 。
+
+等等，让我重新想。ESP32 重启后 totalElapsedTime = 0 ， patchStartTime 是硬编码的旧值。Swift 收到 patchActivatedAt = 旧时间 ，然后计算 patchGracePeriodFrom = patchActivatedAt + 72小时 ，如果旧时间 + 72小时 < 现在，就过期了。
+
+最简单的方案：ESP32 重启后，在 handleAuthRequest 成功后，自动触发一次时间同步请求。 但 ESP32 是 GATT Server，不能主动请求 Swift 发数据。
+
+另一个方案：ESP32 使用 NVS（Non-Volatile Storage）存储 patchStartTime 。 重启后从 NVS 恢复。
+
+但最简单的方案是： ESP32 在 handleSetTimeRequest 中存储时间到 NVS，启动时从 NVS 恢复。 但如果 ESP32 从未收到过时间同步（首次启动），NVS 中没有数据。
+
+让我换个思路。 ESP32 重启后，Swift 重连时 synchronize() 会获取 patchStartTime 。如果这个时间太旧，Swift 就认为过期。
+
+关键：ESP32 需要知道当前时间。 最可靠的方式是配置 NTP。
+
+ESP32\ESP32.ino
+
+ESP32 没有连 WiFi，无法用 NTP。那用 NVS 存储 patchStartTime 。
+
+更简单的方案： ESP32 使用 Preferences （NVS 封装）存储 patchStartTime 。每次收到 handleSetTimeRequest 或 handleActivateRequest 时保存。启动时恢复。
+
+但还有更简单的方案： ESP32 启动时， patchStartTime 设为一个很大的值，使得 Swift 认为刚激活。 因为 Swift 在 activatePatch 时会通过 SetTimePacket 发送当前时间，ESP32 收到后会更新 patchStartTime 。所以 ESP32 只需要在启动时设一个"未来"的时间，等 Swift 同步时间后就会修正。
+
+但问题是： ESP32 重启后 Swift 重连时不会调用 activatePatch （因为 pumpState == active ），所以不会发 SetTimePacket 。
+
+让我再看 Swift 重连流程：
+
+M640GKit\PumpManager\PeripheralManager.swift
+
+重连流程： doAuthorize → synchronize → subscribe 。没有 syncTime 。
+
+最终方案：ESP32 用 NVS (Preferences) 持久化 patchStartTime ，重启后恢复。
+
+ESP32\pump_simulator.h
+
+Search codebase for '#include'
+
+ESP32\pump_simulator.h
+
+用 Preferences 库来持久化 patchStartTime ：
+
+pump_simulator.h
+ESP32\pump_simulator.h
+
++ 1 - 0
+
+Open Diff
+
+现在修改 setup() 使用 NVS 恢复 patchStartTime ：
+
+pump_simulator.h
+ESP32\pump_simulator.h
+
++ 12 - 1
+
+Open Diff
+
+现在在 handleSetTimeRequest 中保存 patchStartTime 到 NVS：
+
+ESP32\pump_simulator.h
+
+pump_simulator.h
+ESP32\pump_simulator.h
+
++ 4 - 0
+
+Open Diff
+
+同样在 handleActivateRequest 中也保存：
+
+ESP32\pump_simulator.h
+
+handleActivateRequest 中 patchStartTime 已经在 handleSetTimeRequest 中被设置了（因为 syncTime 在 activatePatch 之前调用），所以不需要额外保存。
+
+但还需要在 deactivatePatch 时清除 NVS：
+
+Search codebase for 'handleDeactivate|DEACTIVATE|STOPPED'
+
+ESP32\pump_simulator.h
+
+ESP32\pump_simulator.h
+
+ESP32\pump_simulator.h
+
+在 handleStopPatchRequest 中清除 NVS：
+
+pump_simulator.h
+ESP32\pump_simulator.h
+
++ 5 - 0
+
+Open Diff
+
+现在还有一个问题： ESP32 首次启动时（NVS 中没有数据）， time(nullptr) 返回的是 1970 年的时间戳 ，因为 ESP32 没有 RTC 电池，重启后时间从 1970 开始。 time(nullptr) - M640G_BASE_UNIX 会是负数（转为 uint32_t 后变成很大的数），Swift 解析后 patchActivatedAt 会是 2014 年之前的某个时间，仍然过期。
+
+需要处理首次启动的情况。 首次启动时，应该走正常的激活流程（FILLED → PRIMING → PRIMED → ACTIVATE），Swift 会发 SetTimePacket 同步时间。 但我们把初始状态改成了 ACTIVE ...
+
+更好的方案： 首次启动时（NVS 无数据），初始状态应该是 FILLED ，走正常激活流程。重启时（NVS 有数据），初始状态是 ACTIVE ，直接跳过激活。
+
+ESP32\pump_simulator.h
+
+构造函数中初始值改为 FILLED ，然后在 setup() 中根据 NVS 数据决定是否改为 ACTIVE ：
+
+pump_simulator.h
+ESP32\pump_simulator.h
+
++ 1 - 1
+
+Open Diff
+
+现在修改 setup() 中的 NVS 恢复逻辑，同时恢复 patchState ：
+
+ESP32\pump_simulator.h
+
+pump_simulator.h
+ESP32\pump_simulator.h
+
++ 5 - 3
+
+Open Diff
+
+更新日志：
+
+ESP32\pump_simulator.h
+
+Search codebase for 'initial state:'
+
+pump_simulator.h
+ESP32\pump_simulator.h
+
++ 1 - 1
+
+Open Diff
+
+还需要在 handleActivateRequest 中也保存 patchStartTime 到 NVS（因为激活时 patchStartTime 已经被 handleSetTimeRequest 设置了）：
+
+ESP32\pump_simulator.h
+
+pump_simulator.h
+ESP32\pump_simulator.h
+
++ 6 - 0
+
+Open Diff
+
+验证最终代码：
+
+ESP32\pump_simulator.h
+
+改动完成。总结：
+
+问题原因： ESP32 重启后 patchStartTime 被重置为硬编码的旧值（或 time(nullptr) 返回 1970），Swift 收到后计算 patchActivatedAt 是很久以前的时间， patchActivatedAt + 72小时 < 现在 → 判断 patch 过期。
+
+修复方案：使用 ESP32 的 NVS (Preferences) 持久化 patchStartTime
+
+场景 行为 首次启动 （NVS 无数据） patchState = FILLED ，走正常激活流程（PRIMING → PRIMED → ACTIVATE） 重启 （NVS 有数据） 从 NVS 恢复 patchStartTime ， patchState = ACTIVE ，Swift 重连后直接使用 handleSetTimeRequest Swift 同步时间时，保存 patchStartTime 到 NVS handleActivateRequest 激活时，保存 patchStartTime 到 NVS handleStopPatchRequest 停止 patch 时，清除 NVS 中的 patchStart

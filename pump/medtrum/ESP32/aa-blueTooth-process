@@ -1,0 +1,64 @@
+
+========================================
+[BLE] CLIENT CONNECTED!
+[BLE] Connected clients: 0
+========================================
+
+
+****************************************
+*     PUMP SIMULATOR: CLIENT CONNECTED     *
+****************************************
+
+[BLE][I] ========== BLE 客户端已连接 ==========
+[RX] <-- (15 bytes): 0E 05 00 00 02 61 58 CA 95 23 83 65 F0 41 00 
+[BLE][I] 收到命令: AUTH_REQ len=14 seq=0 pkg=0
+[BLE][I] 处理完整命令: AUTH_REQ (15 bytes)
+[BLE][I] === 认证请求 ===
+[BLE][I] 角色: 2
+[BLE][I] 客户端令牌: 6158ca95
+[BLE][I] 期望密钥: 238365f0
+[BLE][I] 收到密钥: 238365f0
+[BLE][I] 认证成功!
+[TX] --> (13 bytes): 0C 05 00 00 00 00 02 01 01 00 00 98 00 
+[RX] <-- (6 bytes): 05 03 01 00 EA 00 
+[BLE][I] 收到命令: SYNCHRONIZE len=5 seq=1 pkg=0
+[BLE][I] 处理完整命令: SYNCHRONIZE (6 bytes)
+[BLE][I] === 同步请求 ===
+[BLE][I] 返回同步数据: 38 bytes, 状态=FILLED
+[TX] --> (46 bytes): 2D 03 01 00 00 00 02 E8 0F 01 00 00 A4 69 4A 93 40 17 0C 00 00 70 17 4A 93 40 17 94 47 79 00 00 A4 69 00 00 00 00 31 07 00 00 64 00 1F 00 
+[RX] <-- (8 bytes): 07 04 02 00 FF 0F 26 00 
+[BLE][I] 收到命令: SUBSCRIBE len=7 seq=2 pkg=0
+[BLE][I] 处理完整命令: SUBSCRIBE (8 bytes)
+[BLE][I] === 订阅请求 ===
+[BLE][I] 订阅值: 4095
+[TX] --> (8 bytes): 07 04 02 00 00 00 79 00 
+[BLE][I] 订阅成功, 开始发送通知
+[NTF] ~~> (38 bytes): 02 E8 0F 01 00 00 A4 69 4A 93 40 17 0C 00 00 70 17 4A 93 40 17 94 47 79 00 00 A4 69 00 00 00 00 31 07 00 00 64 00 
+[BLE][D] 发送状态通知, 状态=FILLED
+[BLE][D] 发送 Ping 心跳 #28
+[RX] <-- (6 bytes): 05 10 03 00 9E 00 
+[BLE][I] 收到命令: PRIME len=5 seq=3 pkg=0
+[BLE][I] 处理完整命令: PRIME (6 bytes)
+[BLE][I] === 预充请求 ===
+[BLE][I] 状态变更: FILLED -> PRIMING
+[NTF] ~~> (39 bytes): 03 F8 0F 01 00 00 A4 69 4A 93 40 17 0C 00 00 00 70 17 4A 93 40 17 94 47 79 00 00 A4 69 00 00 00 00 31 07 00 00 64 00 
+[BLE][D] 发送状态通知, 状态=PRIMING
+[BLE][I] 预充已开始 -> PRIMING
+[TX] --> (8 bytes): 07 10 03 00 00 00 71 00 
+
+
+
+// error
+BLE][I] 收到命令: GET_TIME len=5 seq=12 pkg=0
+[BLE][I] 处理完整命令: GET_TIME (6 bytes)
+[BLE][I] === 获取时间 ===
+[BLE][I] 当前泵时间: 390112347
+[TX] --> (12 bytes): 0B 0B 0C 00 00 00 5B A4 40 17 7C 00 
+[RX] <-- (20 bytes): 17 12 0D 01 00 0C 01 06 00 00 1E 90 01 D0 07 00 00 01 01 B1 
+[BLE][I] 收到命令: ACTIVATE len=23 seq=13 pkg=1
+[BLE][D] 等待更多数据包... (20/24)
+[RX] <-- (9 bytes): 17 12 0D 02 00 20 00 50 C7 
+[BLE][I] 收到命令: ACTIVATE len=23 seq=13 pkg=2
+[BLE][D] 收到分包 2 (24/24)
+[BLE][E] CRC校验失败: 期望=0x6 收到=0xd
+[BLE][D] 发送 Ping 心跳 #99
