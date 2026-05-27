@@ -86,7 +86,12 @@ fun allCommitted(): Boolean {
 
 val keyProps = Properties()
 val keyPropsFile: File = rootProject.file("keystore/keystore.properties")
-keyProps.load(FileInputStream(keyPropsFile))
+if (keyPropsFile.exists()) {
+    keyProps.load(FileInputStream(keyPropsFile))
+}
+
+val productionSigning: Boolean = System.getenv("KEY_ALIAS")?.isNotEmpty() == true
+
 fun getStoreFile(): String {
     var storeFile = keyProps["storeFile"].toString()
     if (storeFile.isEmpty()) {
@@ -176,17 +181,23 @@ android {
     }
 
     signingConfigs {
-        create("release") {
-            storeFile = file(getStoreFile())
-            storePassword = getStorePassword()
-            keyAlias = getKeyAlias()
-            keyPassword = getKeyPassword()
+        if (productionSigning) {
+            create("release") {
+                storeFile = file(getStoreFile())
+                storePassword = getStorePassword()
+                keyAlias = getKeyAlias()
+                keyPassword = getKeyPassword()
+            }
         }
     }
 
     buildTypes {
         release {
-            signingConfig = signingConfigs.findByName("release")
+            if (productionSigning) {
+                signingConfig = signingConfigs.findByName("release")
+            } else {
+                signingConfig = signingConfigs.findByName("debug")
+            }
         }
 
     }
