@@ -102,20 +102,6 @@ open class DaggerAppCompatActivityWithResult : DaggerAppCompatActivity() {
         requestMultiplePermissions = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { permissions ->
             permissions.entries.forEach {
                 aapsLogger.info(LTag.CORE, "Permission ${it.key} ${it.value}")
-                when (it.key) {
-                    Manifest.permission.ACCESS_FINE_LOCATION,
-                    Manifest.permission.ACCESS_COARSE_LOCATION     ->
-                        if (!it.value || ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-                            androidPermission.notifyForLocationPermissions(this)
-                            ToastUtils.errorToast(this, getString(app.aaps.core.ui.R.string.location_permission_not_granted))
-                        }
-
-                    Manifest.permission.ACCESS_BACKGROUND_LOCATION ->
-                        if (!it.value || ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_BACKGROUND_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-                            androidPermission.notifyForLocationPermissions(this)
-                            ToastUtils.errorToast(this, getString(app.aaps.core.ui.R.string.location_permission_not_granted))
-                        }
-                }
             }
             updateButtons()
         }

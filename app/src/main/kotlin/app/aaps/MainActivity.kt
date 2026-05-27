@@ -281,7 +281,6 @@ class MainActivity : DaggerAppCompatActivityWithResult() {
         }
         androidPermission.notifyForStoragePermission(this)
         androidPermission.notifyForBatteryOptimizationPermission(this)
-        if (!config.AAPSCLIENT) androidPermission.notifyForLocationPermissions(this)
         if (config.PUMPDRIVERS) {
             if (smsCommunicator.isEnabled())
                 androidPermission.notifyForSMSPermissions(this)

@@ -151,27 +151,7 @@ class AndroidPermissionImpl @Inject constructor(
     }
 
     @Synchronized override fun notifyForLocationPermissions(activity: FragmentActivity) {
-        if (permissionNotGranted(activity, Manifest.permission.ACCESS_FINE_LOCATION) ||
-            permissionNotGranted(activity, Manifest.permission.ACCESS_COARSE_LOCATION)
-        ) {
-            uiInteraction.addNotification(
-                id = Notification.PERMISSION_LOCATION,
-                text = rh.gs(R.string.need_location_permission),
-                level = Notification.URGENT,
-                actionButtonId = R.string.request,
-                action = { askForPermission(activity, arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION)) },
-                validityCheck = { permissionNotGranted(activity, Manifest.permission.ACCESS_FINE_LOCATION) || permissionNotGranted(activity, Manifest.permission.ACCESS_COARSE_LOCATION) }
-            )
-        } else if (permissionNotGranted(activity, Manifest.permission.ACCESS_BACKGROUND_LOCATION)) {
-            uiInteraction.addNotification(
-                id = Notification.PERMISSION_LOCATION,
-                text = rh.gs(R.string.need_background_location_permission),
-                level = Notification.URGENT,
-                actionButtonId = R.string.request,
-                action = { askForPermission(activity, arrayOf(Manifest.permission.ACCESS_BACKGROUND_LOCATION)) },
-                validityCheck = { permissionNotGranted(activity, Manifest.permission.ACCESS_BACKGROUND_LOCATION) }
-            )
-        } else uiInteraction.dismissNotification(Notification.PERMISSION_LOCATION)
+        uiInteraction.dismissNotification(Notification.PERMISSION_LOCATION)
     }
 
     @Synchronized override fun notifyForSystemWindowPermissions(activity: FragmentActivity) {

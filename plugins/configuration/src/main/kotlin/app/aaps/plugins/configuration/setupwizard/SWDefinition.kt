@@ -232,27 +232,6 @@ class SWDefinition @Inject constructor(
                     preferences.getIfExists(StringKey.AapsDirectoryUri) != null
             }
 
-    private val screenPermissionBt
-        get() = swScreenProvider.get().with(R.string.permission)
-            .skippable(false)
-            .add(swInfoTextProvider.get().label(rh.gs(R.string.need_location_permission)))
-            .add(swBreakProvider.get())
-            .add(
-                swButtonProvider.get()
-                     .text(R.string.askforpermission)
-                    .visibility { androidPermission.permissionNotGranted(requireActivity(), Manifest.permission.ACCESS_FINE_LOCATION) }
-                    .action { androidPermission.askForPermission(requireActivity(), Manifest.permission.ACCESS_FINE_LOCATION) })
-            .add(swBreakProvider.get())
-            .add(swInfoTextProvider.get().label(rh.gs(R.string.need_background_location_permission)))
-            .add(swBreakProvider.get())
-            .add(
-                swButtonProvider.get()
-                     .text(R.string.askforpermission)
-                    .visibility { androidPermission.permissionNotGranted(requireActivity(), Manifest.permission.ACCESS_BACKGROUND_LOCATION) }
-                    .action { androidPermission.askForPermission(requireActivity(), Manifest.permission.ACCESS_BACKGROUND_LOCATION) })
-            .visibility { androidPermission.permissionNotGranted(requireActivity(), Manifest.permission.ACCESS_FINE_LOCATION) || androidPermission.permissionNotGranted(requireActivity(), Manifest.permission.ACCESS_BACKGROUND_LOCATION) }
-            .validator { !androidPermission.permissionNotGranted(requireActivity(), Manifest.permission.ACCESS_FINE_LOCATION) && !androidPermission.permissionNotGranted(requireActivity(), Manifest.permission.ACCESS_BACKGROUND_LOCATION) }
-
     private val screenImport
         get() = swScreenProvider.get().with(R.string.import_setting)
             .add(swInfoTextProvider.get().label(R.string.storedsettingsfound))
@@ -424,7 +403,6 @@ class SWDefinition @Inject constructor(
             //.add(screenLanguage)
             .add(screenEula)
             .add(if (isRunningTest()) null else screenPermissionWindow)  // cannot mock ask battery optimization
-            .add(screenPermissionBt)
             .add(screenMasterPassword)
             .add(screenImport)
             .add(screenUnits)
@@ -446,7 +424,6 @@ class SWDefinition @Inject constructor(
             //.add(screenLanguage)
             .add(screenEula)
             .add(if (isRunningTest()) null else screenPermissionWindow) // cannot mock ask battery optimization
-            .add(screenPermissionBt)
             .add(screenMasterPassword)
             .add(screenImport)
             .add(screenUnits)
