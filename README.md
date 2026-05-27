@@ -61,3 +61,6 @@ Please follow these steps:
   `KEY_ALIAS`, `KEY_PASSWORD`, `STORE_FILE`, `STORE_PASSWORD`，这些变量的值都在群中。
 * 在Github Actions中触发编译
 * 下载`Artifacts`中的编译产物`aaps.zip`
+
+
+C:\Users\Administrator\.jdks\openjdk-26.0.1\bin\keytool.exe -genkeypair -v -keystore demokeystore.jks -storepass ddc123456 -keypass ddc123456 -keyalg RSA -keysize 2048 -validity 10000 -alias demo_alias -dname "CN=ddc, OU=Dev, O=YourCompany, L=Shanghai, ST=Shanghai, C=CN"
