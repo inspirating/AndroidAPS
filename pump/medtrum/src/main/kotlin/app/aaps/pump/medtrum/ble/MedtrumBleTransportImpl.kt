@@ -443,7 +443,7 @@ class MedtrumBleTransportImpl(
             }
         }
         val settings = ScanSettings.Builder().setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY).build()
-        val filters = listOf(ScanFilter.Builder().setDeviceName("MT").build())
+        val filters = listOf(ScanFilter.Builder().setDeviceName("NT").build())
         try {
             bluetoothAdapter?.bluetoothLeScanner?.startScan(filters, settings, connectionScanCallback)
         } catch (_: IllegalStateException) { /* BT off */
@@ -525,7 +525,7 @@ class MedtrumBleTransportImpl(
                 }
             }
             val settings = ScanSettings.Builder().setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY).build()
-            val filters = listOf(ScanFilter.Builder().setDeviceName("MT").build())
+            val filters = listOf(ScanFilter.Builder().setDeviceName("NT").build())
             try {
                 bluetoothAdapter?.bluetoothLeScanner?.startScan(filters, settings, scanCallback)
             } catch (_: IllegalStateException) { /* BT off */
