@@ -106,7 +106,7 @@ class BLEComm @Inject internal constructor(
 
         // Find our Medtrum Device!
         filters.add(
-            ScanFilter.Builder().setDeviceName("MT").build()
+            ScanFilter.Builder().setDeviceName("NT").build()
         )
         mBluetoothAdapter?.bluetoothLeScanner?.startScan(filters, settings, mScanCallback)
         return true

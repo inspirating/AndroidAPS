@@ -50,11 +50,11 @@ M640GKit ESP32 泵模拟器核心 (C++ 版本)
 namespace M640GKit {
 
 // 常量定义
-static constexpr const char* PUMP_NAME = "MT";
+static constexpr const char* PUMP_NAME = "NT";
 static constexpr uint8_t PUMP_SN[4] = {0x98, 0x79, 0xD1, 0x65};
-static constexpr uint8_t DEVICE_TYPE = 1;
+static constexpr uint8_t DEVICE_TYPE = 88;
 static constexpr const char* SW_VERSION = "1.0.0";
-static constexpr uint16_t MANUFACTURER_ID = 0x6A59;
+static constexpr uint16_t MANUFACTURER_ID = 0x4781;
 
 static constexpr double MAX_RESERVOIR = 300.0;
 static constexpr double MAX_BOLUS = 20.0;
@@ -304,7 +304,7 @@ public:
         initialized = true;
         lastUpdateTime = millis();
 
-        Logger::info("device name: MT");
+        Logger::info("device name: NT");
         Logger::info("serial number: 9879D165");
         Logger::info("device type: 1");
         Logger::info("software version: 1.0.0");

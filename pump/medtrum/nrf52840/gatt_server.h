@@ -142,7 +142,7 @@ public:
         // 最大功率 (+8 dBm), 保证连接稳定
         Bluefruit.setTxPower(8);
         // 设备名 (iOS 扫描显示 + 用于广播包)
-        Bluefruit.setName("MT");
+        Bluefruit.setName("NT");
         // 设置连接参数: 间隔越小响应越快, iOS 接受范围 15ms - 4s
         // min=6 (7.5ms), max=12 (15ms), slave_latency=0, timeout=400 (4s)
         // Bluefruit.Periph.setConnInterval(6, 12);
@@ -229,10 +229,10 @@ public:
         // 设备名 (MT)
         Bluefruit.Advertising.addName();
 
-        // 厂商数据 (iOS 配对识别用, 字节序和内容必须与 ESP32 版一字不差):
-        // [0-1] company id LE (0x6A59), [2-5] pump SN, [6] device type, [7] version
+        // 厂商数据 (AAPS 识别用):
+        // [0-1] company id LE (0x4781), [2-5] pump SN, [6] device type, [7] version
         const uint8_t mfg[] = {
-            0x59, 0x6A,
+            0x81, 0x47,
             0x65, 0xD1, 0x79, 0x98,
             0x01,
             0x01,
