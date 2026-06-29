@@ -12,6 +12,8 @@
 
 #include "base_packet.h"
 #include <cstdint>
+#include <time.h>   // nRF52840: time_t / struct tm / gmtime / time() 需显式引入
+                    // (ESP32 上被其他头间接带入; Adafruit nRF52 不会)
 
 namespace M640GKit {
 

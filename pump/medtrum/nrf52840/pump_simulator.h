@@ -23,7 +23,9 @@ M640GKit ESP32 泵模拟器核心 (C++ 版本)
 #include <cstdint>
 #include <cstring>
 #include <cmath>
-#include <Preferences.h>
+// nRF52840: 用 LittleFS(InternalFS) 包装类替代 ESP32 的 Preferences(NVS)。
+// preferences_nrf52.h 提供同名同 API 的 Preferences 类, 下方 11 处调用点零改动。
+#include "preferences_nrf52.h"
 
 #include "enums.h"
 #include "crc8.h"
@@ -39,6 +41,11 @@ M640GKit ESP32 泵模拟器核心 (C++ 版本)
 #include "misc_packet.h"
 #include "gatt_server.h"
 #include "connection_tracker.h"
+// nRF52840 (Adafruit nRF52): FreeRTOS 由板卡包自带。
+// ESP32 用 <freertos/semphr.h>(带子目录前缀), Adafruit nRF52 的头文件布局不同——
+// 它把 FreeRTOS 头平铺在 core 里, 正确入口是 <rtos.h>, 一次性引入
+// FreeRTOS.h / task.h / semphr.h 等。直接 <freertos/semphr.h> 会找不到文件。
+#include <rtos.h>
 
 namespace M640GKit {
 
@@ -50,10 +57,10 @@ static constexpr const char* SW_VERSION = "1.0.0";
 static constexpr uint16_t MANUFACTURER_ID = 0x6A59;
 
 static constexpr double MAX_RESERVOIR = 300.0;
-static constexpr double MAX_BOLUS = 30.0;
-static constexpr double MAX_BASAL_RATE = 60.0;
+static constexpr double MAX_BOLUS = 20.0;
+static constexpr double MAX_BASAL_RATE = 20.0;
 static constexpr double DEFAULT_HOURLY_MAX = 25.0;
-static constexpr double DEFAULT_DAILY_MAX = 200.0;
+static constexpr double DEFAULT_DAILY_MAX = 80.0;
 
 static constexpr uint32_t M640G_BASE_UNIX = 1388534400; // 2014-01-01T00:00:00+0000
 
@@ -132,17 +139,39 @@ struct TempBasalInfo {
 };
 
 // ========== 队列输注系统 ==========
-static constexpr double STEP_SIZE = 0.3;
-static constexpr int STEP_PIN = 1;
+static constexpr double STEP_SIZE = 0.5;
+static constexpr double CARRYOVER_MAX = 2.0;  // carryOver 硬上限: 防止撞上限时欠债无限累积, 配额恢复时一次性补打成过量
+// Nice!Nano: STEP_PIN 用 P0.17 = D2 排针引脚 (Adafruit nRF52 引脚号 17)。
+// Nice!Nano 引脚映射: P0.x = x; P1.x = 32 + x。P1.02 = 34, 空闲数字 GPIO, 无硬件冲突。
+// PCA10056 DK 原值为 33 (P1.01), ESP32 版原值为 7 (GPIO7)。
+static constexpr int STEP_PIN = 29;
 
 struct InsulinAction {
     uint32_t executeTimeMs;
     double stepAmount;
 };
 
+// 前向声明: gpioDeliveryTask 在文件末尾定义
+void gpioDeliveryTask(void *parameter);
+
+void safeDelay(int ms) {
+    // long start = millis();
+    // while (millis() - start < ms) {
+    //     // 【关键】如果你的模拟器有 update() 或处理通信的方法，必须在这里调用
+    //     // 比如：simulator.update(); 或者 BLEDevice::handle();
+    //     // 这样可以防止 BLE 协议栈崩溃导致泵页面被强制撤销
+    //     vTaskDelay(pdMS_TO_TICKS(100)); 
+    // }
+
+    vTaskDelay(pdMS_TO_TICKS(ms)); 
+}
+
+
 class M640GPumpSimulator {
 public:
-    M640GPumpSimulator() : initialized(false), lastUpdateTime(0), updateIntervalMs(1000),
+    friend void gpioDeliveryTask(void *parameter);
+
+    M640GPumpSimulator() : initialized(false), lastUpdateTime(0), updateIntervalMs(200),
         patchState(PatchState::FILLED), simulatorState(SimulatorState::INITIALIZING),
         reservoir(MAX_RESERVOIR), activeInsulin(0.0), batteryVoltage(3.8), batteryLevel(100),
         patchStartTime(0), totalElapsedTime(0), currentBolus(nullptr),
@@ -150,14 +179,15 @@ public:
         isConnected(false), isSubscribed(false), isAuthenticated(false), sessionToken{0}, pumpTimezone(0),
         timeSyncPending(false), sequenceNumber(0), pingCounter(0), lastPingTime(0),
         connectionTimeoutMs(15000), lastActivityTime(0), patchId(0),
-        lastNotifiedState(PatchState::NONE), patchStateDirty(false), pendingBleDisconnect(false), nvsClearPending(false), advertisingResumeTime(0),
+        lastNotifiedState(PatchState::FILLED), patchStateDirty(false), pendingBleDisconnect(false), nvsClearPending(false), advertisingResumeTime(0),
         hourlyMaxInsulin(DEFAULT_HOURLY_MAX), dailyMaxInsulin(DEFAULT_DAILY_MAX),
         hourlyDelivered(0.0), dailyDelivered(0.0),
         currentBasalRate(0.6), basalSequence(0),
         expirationTimer(0), alarmSetting(0),
         predictiveLowSuspend(0), predictiveLowSuspendRange(30), lastPrimeNotificationTime(0),
         basalQueueIdx(0), tempBasalQueueIdx(0), bolusQueueIdx(0),
-        tempBasalActive(false), basalSuspended(false), tempBasalStartMs(0), lastDeliveryScanTime(0), everActivated(false) {
+        tempBasalActive(false), basalSuspended(false), suspendResumeTimeMs(0), stepCarryOver(0.0), tempBasalStartMs(0), lastDeliveryScanTime(0), everActivated(false), lastHourResetSec(0), lastDayResetSec(0),
+        gpioDeliveryStartMs(0), gpioRemainingSteps(0), gpioCurrentStep(0), isDeliveryTaskRunning(false), xSemaphore(nullptr), pendingSubscribeNotify(false) {
         currentBolus = nullptr;
         tempBasal = nullptr;
     }
@@ -173,6 +203,12 @@ public:
 
         // 初始化随机数
         randomSeed(millis());
+
+        // 创建信号量
+        xSemaphore = xSemaphoreCreateMutex();
+        if (xSemaphore != nullptr) {
+            xSemaphoreGive(xSemaphore);
+        }
 
         // 生成会话令牌
         generateSessionToken();
@@ -198,7 +234,41 @@ public:
             } else if (patchState == PatchState::SUSPENDED || patchState == PatchState::PAUSED) {
                 simulatorState = SimulatorState::SUSPENDED;
             }
+
+            // 恢复输注统计数据
+            Preferences statsPrefs;
+            statsPrefs.begin("pumpStats", true);
+            hourlyDelivered = statsPrefs.getDouble("hourlyDel", 0.0);
+            dailyDelivered = statsPrefs.getDouble("dailyDel", 0.0);
+            reservoir = statsPrefs.getDouble("reservoir", MAX_RESERVOIR);
+            stepCarryOver = statsPrefs.getDouble("stepCarry", 0.0);
+            // 防御: NVS 里的旧值 (可能来自更早版本固件四舍五入产生的负值, 或异常累积) 统一封顶到 [0, CARRYOVER_MAX]
+            if (stepCarryOver < 0) stepCarryOver = 0;
+            if (stepCarryOver > CARRYOVER_MAX) stepCarryOver = CARRYOVER_MAX;
+            uint32_t savedLastHourReset = statsPrefs.getUInt("lastHourRst", 0);
+            uint32_t savedLastDayReset = statsPrefs.getUInt("lastDayRst", 0);
+            statsPrefs.end();
+
+            // 恢复 resetHourlyDailyCounters 的计时基准
+            // 如果重启间隔超过1小时/1天, 计数器应归零
+            uint32_t nowSec = millis() / 1000;
+            if (savedLastHourReset > 0 && nowSec - savedLastHourReset < 3600) {
+                // 在同一小时内, 恢复计数和计时基准
+                lastHourResetSec = savedLastHourReset;
+            } else {
+                hourlyDelivered = 0.0;
+                lastHourResetSec = nowSec;
+            }
+            if (savedLastDayReset > 0 && nowSec - savedLastDayReset < 86400) {
+                // 在同一天内, 恢复计数和计时基准
+                lastDayResetSec = savedLastDayReset;
+            } else {
+                dailyDelivered = 0.0;
+                lastDayResetSec = nowSec;
+            }
+
             Logger::info("从NVS恢复: patchStartTime=" + String(patchStartTime) + " state=" + String(getStateName(patchState)) + " elapsed=" + String(totalElapsedTime));
+            Logger::info("统计恢复: hourlyDel=" + String(hourlyDelivered) + " dailyDel=" + String(dailyDelivered) + " reservoir=" + String(reservoir) + " carryOver=" + String(stepCarryOver));
         } else {
             patchStartTime = 0;
             // 检查patch是否曾经被激活过（独立持久化标记，不会被handleStopPatchRequest清除）
@@ -207,8 +277,9 @@ public:
             uint8_t wasActivated = metaPrefs.getUChar("activated", 0);
             metaPrefs.end();
             if (wasActivated) {
+                patchState = PatchState::EXPIRED;
                 everActivated = true;
-                Logger::info("检测到patch曾激活过, 等待AUTH后重置为FILLED");
+                Logger::info("检测到patch曾激活过, 设置状态为EXPIRED, 避免iOS跳转到Serial Number页面");
             } else {
                 Logger::info("首次启动: 等待激活流程");
             }
@@ -223,7 +294,8 @@ public:
         gattServer.onWriteRequest = handleWriteRequestStatic;
         gattServer.onConnect = handleConnectStatic;
         gattServer.onDisconnect = handleDisconnectStatic;
-        
+        gattServer.onSubscribe = handleSubscribeStatic;
+
         Serial.println("[PUMP] Starting GATT server...");
         gattServer.start();
         Serial.println("[PUMP] GATT server started");
@@ -248,13 +320,273 @@ public:
             Logger::error("pump simulator not initailized yet, please call setup() first");
             return;
         }
-
+        // 不再用 isGpioDeliveryComplete() 门控 update():
+        // 原逻辑会导致 prime 进度 (updatePrimeProgress) 在 GPIO 输注期间完全停滞。
+        // processDeliveryQueues 内部已有 isDeliveryTaskRunning 检查, 不会重复触发 GPIO。
         uint32_t currentTime = millis();
         if (currentTime - lastUpdateTime >= updateIntervalMs) {
             lastUpdateTime = currentTime;
             update();
         }
     }
+
+    // void loop() {
+    //     // 【终极测试锁】
+    //     // 如果大剂量线程正在运行，让 loop 陷入绝对死循环，什么都不执行，连 delay 都不给！
+    //     while (isDeliveryTaskRunning) {
+    //         // 纯卡死，不让出任何 CPU 给 loop 后面的 simulator.update() 
+    //         // 注：为了防止 ESP32 的任务喂狗报错，这里只用最原始的底层微秒延迟
+    //         esp_rom_delay_us(1000); 
+    //     }
+
+    //     // 正常情况下的模拟器刷新
+    //     uint32_t currentTime = millis();
+    //     if (currentTime - lastUpdateTime >= updateIntervalMs) {
+    //         lastUpdateTime = currentTime;
+    //         update();
+    //     }
+    // }
+    // void loop() {
+    //     int steps = 10;
+
+    //     safeDelay(5000);
+
+    //     // 1. 唤醒屏幕
+    //     digitalWrite(STEP_PIN, LOW);
+    //     safeDelay(200);
+    //     digitalWrite(STEP_PIN, HIGH);
+    //     safeDelay(1000);
+
+    //     // 2. 触发进入模式
+    //     digitalWrite(STEP_PIN, LOW);
+    //     safeDelay(2000);
+    //     digitalWrite(STEP_PIN, HIGH);
+    //     safeDelay(2000);
+
+    //     // 3. 循环输入步数
+    //     for (int i = 1; i <= steps; i++) {
+    //         digitalWrite(STEP_PIN, LOW);
+    //         safeDelay(400);
+    //         digitalWrite(STEP_PIN, HIGH);
+    //         safeDelay(600);
+    //     }
+
+    //     safeDelay(3000);
+
+    //     // 4. 第一次长按确认
+    //     digitalWrite(STEP_PIN, LOW);
+    //     safeDelay(4000);
+    //     digitalWrite(STEP_PIN, HIGH);
+    //     safeDelay(steps * 3000);
+
+    //     // 5. 第二次长按执行
+    //     digitalWrite(STEP_PIN, LOW);
+    //     safeDelay(2000);
+    //     digitalWrite(STEP_PIN, HIGH);
+
+    //     // 死循环卡住，任务完成就不要再发了
+    //     while(1) {
+    //         delay(1000);
+    //     }
+    // }
+
+    // // 极性假设：如果这样不行，把所有的 LOW 换成 HIGH，HIGH 换成 LOW 再试一次！
+    // void loop() {
+    //     delay(5000); // 每 5 秒尝试一次，给你时间观察
+
+    //     Serial.println(">>> 1. 短按唤醒屏幕...");
+    //     digitalWrite(STEP_PIN, LOW); // 按下
+    //     delay(200);                  
+    //     digitalWrite(STEP_PIN, HIGH); // 松开
+        
+    //     delay(1000); // 等待屏幕完全亮起，给泵一点反应时间
+
+    //     Serial.println(">>> 2. 长按尝试触发声响大剂量...");
+    //     digitalWrite(STEP_PIN, LOW); // 按下
+    //     delay(2000);                 // 狠按 2 秒！保证触发
+    //     digitalWrite(STEP_PIN, HIGH); // 松开
+        
+    //     Serial.println(">>> 触发结束，观察泵是否进入了大剂量页面？");
+        
+    //     // 死循环卡住，防止重复发干扰观察
+    //     while(1) {
+    //         delay(1000);
+    //     }
+    // }
+
+    // // 假设 STEP_PIN 已经在 setup() 里 pinMode(STEP_PIN, OUTPUT) 并且 digitalWrite(STEP_PIN, HIGH) 了
+    // void loop() {
+    //     // 给你 5 秒钟准备观察
+    //     delay(5000); 
+    //     Serial.println("====== 开始模拟完整声响大剂量输注 ======");
+
+    //     // 第一步：唤醒屏幕 (短按)
+    //     Serial.println(">>> 1. 唤醒屏幕...");
+    //     digitalWrite(STEP_PIN, LOW);
+    //     delay(200);
+    //     digitalWrite(STEP_PIN, HIGH);
+    //     delay(1000); // 必须等屏幕完全亮起
+
+    //     // 第二步：触发进入声响大剂量模式 (长按)
+    //     Serial.println(">>> 2. 触发进入声响大剂量...");
+    //     digitalWrite(STEP_PIN, LOW);
+    //     delay(2000); // 长按 2 秒
+    //     digitalWrite(STEP_PIN, HIGH);
+    //     delay(2000); // 等待泵“滴”一声，并且界面完全切换过去
+
+    //     // 第三步：连续输入步数（假设输入 3 步）
+    //     int steps = 10;
+    //     Serial.println(">>> 3. 开始输入步数: " + String(steps) + " 步");
+    //     for (int i = 1; i <= steps; i++) {
+    //         Serial.println("    -> 按下第 " + String(i) + " 步");
+    //         digitalWrite(STEP_PIN, LOW);
+    //         delay(400);  // 短按 0.4 秒
+    //         digitalWrite(STEP_PIN, HIGH);
+    //         delay(600);  // 抬起 0.6 秒（留足时间给泵发声反馈，这一步极易翻车）
+    //     }
+    //     delay(3000); // 输入完毕后，等一下再确认
+
+    //     // 第四步：第一次长按确认（泵会回放步数声音）
+    //     Serial.println(">>> 4. 确认输入的步数...");
+    //     digitalWrite(STEP_PIN, LOW);
+    //     delay(4000);
+    //     digitalWrite(STEP_PIN, HIGH);
+    //     delay(3000*8); // 【关键】泵会“滴滴滴”把刚才的 3 步响一遍给你听，必须等它响完！
+
+    //     // 第五步：第二次长按确认（真正开始推药）
+    //     Serial.println(">>> 5. 最终确认执行输注...");
+    //     digitalWrite(STEP_PIN, LOW);
+    //     delay(2000);
+    //     digitalWrite(STEP_PIN, HIGH);
+
+    //     Serial.println("====== 指令发送完毕，观察泵是否开始推推杆 ======");
+
+    //     // 死循环卡住，任务完成就不要再发了
+    //     while(1) {
+    //         delay(1000);
+    //     }
+    // }
+// 5000 wait
+// 200 1000 第一步：唤醒屏幕 (短按)
+// 2000 2000 第二步：触发进入声响大剂量模式 (长按)
+// 400 600 loop
+// 3000 输入完毕后，等一下再确认
+// 4000 3000*steps 第四步：第一次长按确认（泵会回放步数声音）
+// 2000 第五步：第二次长按确认（真正开始推药）
+
+    // void loop() {
+    //     // delay(5000); 
+    //     vTaskDelay(pdMS_TO_TICKS(5000));
+
+    //     int steps = 10;
+        
+    //     // 1. 唤醒屏幕
+    //     digitalWrite(STEP_PIN, LOW);
+    //     vTaskDelay(pdMS_TO_TICKS(200));   // FreeRTOS 标准的 delay 写法，不会阻塞主线程
+    //     digitalWrite(STEP_PIN, HIGH);
+    //     vTaskDelay(pdMS_TO_TICKS(1000)); 
+
+    //     // 2. 触发进入模式
+    //     digitalWrite(STEP_PIN, LOW);
+    //     vTaskDelay(pdMS_TO_TICKS(2000)); 
+    //     digitalWrite(STEP_PIN, HIGH);
+    //     vTaskDelay(pdMS_TO_TICKS(2000)); 
+
+    //     // 3. 循环输入步数
+    //     for (int i = 1; i <= steps; i++) {
+    //         digitalWrite(STEP_PIN, LOW);
+    //         vTaskDelay(pdMS_TO_TICKS(400));
+    //         digitalWrite(STEP_PIN, HIGH);
+    //         vTaskDelay(pdMS_TO_TICKS(600)); // 这里的时序你自己测出完美的数值填进来
+    //     }
+    //     vTaskDelay(pdMS_TO_TICKS(3000)); 
+
+    //     // 4. 第一次长按确认
+    //     digitalWrite(STEP_PIN, LOW);
+    //     vTaskDelay(pdMS_TO_TICKS(4000));
+    //     digitalWrite(STEP_PIN, HIGH);
+    //     // 根据步数动态等待泵响完（每步大概1秒）
+    //     vTaskDelay(pdMS_TO_TICKS(steps * 3000)); 
+
+    //     // 5. 第二次长按执行
+    //     digitalWrite(STEP_PIN, LOW);
+    //     vTaskDelay(pdMS_TO_TICKS(2000));
+    //     digitalWrite(STEP_PIN, HIGH);
+
+    //     Logger::info("[Task] 大剂量物理输入完毕！");
+
+        
+    //     // 线程执行完毕，必须自行销毁！
+    //     // vTaskDelete(NULL);
+
+    //     while(1) {
+    //         delay(1000);
+    //     }
+    // }
+
+    // bool hasExecuted = false;
+
+    // void loop() {
+    //     if (hasExecuted) {
+    //         delay(1); // 必须留 delay(1) 或 yield()，防止触发看门狗
+    //         return; 
+    //     }
+
+    //     // 刚开机，先静静等待 5 秒钟，让 ESP32 蓝牙广播稳定，也给泵一个稳定的供电初始电位
+    //     delay(5000); 
+
+    //     Serial.println("=========================================");
+    //     Serial.println(">>> 触发测试：开始执行单次大剂量输入流程...");
+    //     Serial.println("=========================================");
+
+    //     // 1. 短按唤醒 / 进入声音大剂量界面
+    //     digitalWrite(STEP_PIN, HIGH); 
+    //     delay(140);                   
+    //     digitalWrite(STEP_PIN, LOW);  
+        
+    //     Serial.println("步骤 1 完成：已发送唤醒脉冲，等待界面加载...");
+    //     delay(3000); // 延长到 3 秒，确保泵的菜单完全加载完毕出来
+
+    //     // 2. 长按触发输入模式 (必须大于 2 秒)
+    //     digitalWrite(STEP_PIN, HIGH); 
+    //     delay(2200);                  
+    //     digitalWrite(STEP_PIN, LOW);  
+        
+    //     Serial.println("步骤 2 完成：已发送长按触发，等待音频就绪...");
+    //     delay(2000); // 给泵 2 秒钟准备
+
+    //     // 3. 循环输入步数 (放慢速度，确保消抖通过)
+    //     Serial.println("步骤 3：开始按 200ms/250ms 的安全速度敲击 5 步...");
+    //     for (int i = 1; i <= 5; i++) {
+    //         digitalWrite(STEP_PIN, HIGH); 
+    //         delay(200); // 稳稳按下 200ms
+    //         digitalWrite(STEP_PIN, LOW);  
+    //         delay(250); // 稳稳松开 250ms
+    //     }
+    //     delay(2000); 
+
+    //     // 4. 第一次长按确认
+    //     Serial.println("步骤 4：长按确认步数...");
+    //     digitalWrite(STEP_PIN, HIGH); 
+    //     delay(2500);                  
+    //     digitalWrite(STEP_PIN, LOW);  
+        
+    //     // 释放后，死等泵把“滴滴滴”的声音播完（5步 * 500ms + 缓冲）
+    //     delay(5 * 500 + 1000); 
+
+    //     // 5. 第二次长按最终执行输注
+    //     Serial.println("步骤 5：最终长按执行...");
+    //     digitalWrite(STEP_PIN, HIGH); 
+    //     delay(2500);                  
+    //     digitalWrite(STEP_PIN, LOW);  
+
+    //     Serial.println("=========================================");
+    //     Serial.println(">>> [SUCCESS] 单次测试流程完全结束，锁定 loop！");
+    //     Serial.println("=========================================");
+
+    //     // 【核心修复 3】：锁死状态，防止进入下一次 loop 循环
+    //     hasExecuted = true;
+    // }
 
 private:
     bool initialized;
@@ -358,9 +690,21 @@ private:
     size_t bolusQueueIdx;
     bool tempBasalActive;
     bool basalSuspended;
+    uint32_t suspendResumeTimeMs;  // 0=不自动恢复, >0=自动恢复的绝对时间
+    double stepCarryOver;  // 步进补偿余量, 独立跟踪, 不放入 bolusQueue
     uint32_t tempBasalStartMs;
     uint32_t lastDeliveryScanTime;
     bool everActivated;
+    uint32_t lastHourResetSec;  // 上次小时计数器重置时间(秒), 持久化到NVS
+    uint32_t lastDayResetSec;   // 上次日计数器重置时间(秒), 持久化到NVS
+
+    uint32_t gpioDeliveryStartMs;   // 整次输注开始的绝对时间, 用于超时保护
+    int gpioRemainingSteps;
+    int gpioCurrentStep;
+    int gpioTotalSteps;
+    volatile bool isDeliveryTaskRunning;
+    SemaphoreHandle_t xSemaphore;
+    volatile bool pendingSubscribeNotify;  // 在BLE中断中设置, 主循环中消费
 
     const char* getStateName(PatchState s) {
         switch (s) {
@@ -469,6 +813,11 @@ private:
     }
 
     void update() {
+        static uint32_t updateCallCount = 0;
+        updateCallCount++;
+        // Serial.print("[UPDATE] called #");
+        // Serial.println(updateCallCount);
+
         static uint32_t elapsedAccumulator = 0;
         elapsedAccumulator += updateIntervalMs;
         if (elapsedAccumulator >= 1000) {
@@ -489,19 +838,19 @@ private:
         if (pendingBleDisconnect) {
             pendingBleDisconnect = false;
             Logger::info("执行延迟BLE断开并重置为初始状态");
-            patchState = PatchState::FILLED;
-            everActivated = false;
-            patchId = 0;
-            Preferences metaPrefs;
-            metaPrefs.begin("pumpMeta", false);
-            metaPrefs.remove("activated");
-            metaPrefs.end();
+            if (everActivated) {
+                patchState = PatchState::EXPIRED;
+                Logger::info("patch曾激活过, 设置状态为EXPIRED而非FILLED");
+            } else {
+                patchState = PatchState::FILLED;
+            }
             simulatorState = SimulatorState::INITIALIZING;
             gattServer.advertisingSuspended = true;
-            BLEDevice::stopAdvertising();
+            // nRF52840: 通过 GATTServer 抽象层停广播 (ESP32 版直接调 BLEDevice::stopAdvertising)。
+            gattServer.stopAdvertising();
             gattServer.disconnectAll();
-            advertisingResumeTime = millis() + 5000;
-            Logger::info("BLE广播将在5秒后恢复, 允许重新连接");
+            advertisingResumeTime = 0;
+            Logger::info("BLE广播已永久停止, 需重启设备才能再次连接");
         }
 
         if (gattServer.advertisingSuspended && advertisingResumeTime > 0 && millis() > advertisingResumeTime) {
@@ -529,10 +878,34 @@ private:
             elapsedPrefs.end();
         }
 
+        // 自动恢复: suspend 到期后自动恢复
+        if (basalSuspended && suspendResumeTimeMs > 0 && millis() >= suspendResumeTimeMs) {
+            suspendResumeTimeMs = 0;
+            basalSuspended = false;
+            setPatchState(PatchState::ACTIVE);
+            simulatorState = SimulatorState::RUNNING;
+            addRecord(4, 0, 0);
+            buildBasalQueue();
+            Logger::info("暂停到期, 泵已自动恢复 -> ACTIVE");
+        }
+
         processDeliveryQueues();
         updatePrimeProgress();
         resetHourlyDailyCounters();
-        checkAndSendStateNotification();
+
+        // 检查订阅后初始状态通知标志 (在 BLE 中断中设置, 避免 vector 堆分配在中断上下文)
+        if (pendingSubscribeNotify) {
+            pendingSubscribeNotify = false;
+            // 不再主动发送状态通知 — Trio 在 SYNCHRONIZE 后已经知道状态,
+            // 额外的通知会打乱 PRIME/ACTIVATE 流程。
+        }
+
+        // 检查状态变化, 在 update() 中发送通知 (避免在 handle 中同步发送导致 HVN 队列竞争)
+        if (patchState != lastNotifiedState) {
+            sendStateNotification();
+            lastNotifiedState = patchState;
+        }
+
         sendPingHeartbeat();
         checkConnectionTimeout();
 
@@ -555,23 +928,35 @@ private:
     }
 
     void resetHourlyDailyCounters() {
-        static uint32_t lastHourReset = 0;
-        static uint32_t lastDayReset = 0;
         uint32_t now = millis() / 1000;
 
-        if (now - lastHourReset >= 3600) {
+        if (now - lastHourResetSec >= 3600) {
             hourlyDelivered = 0.0;
-            lastHourReset = now;
+            lastHourResetSec = now;
         }
-        if (now - lastDayReset >= 86400) {
+        if (now - lastDayResetSec >= 86400) {
             dailyDelivered = 0.0;
-            lastDayReset = now;
+            lastDayResetSec = now;
         }
+    }
+
+    void persistStats() {
+        Preferences prefs;
+        prefs.begin("pumpStats", false);
+        prefs.putDouble("hourlyDel", hourlyDelivered);
+        prefs.putDouble("dailyDel", dailyDelivered);
+        prefs.putDouble("reservoir", reservoir);
+        prefs.putDouble("stepCarry", stepCarryOver);
+        prefs.putUInt("lastHourRst", lastHourResetSec);
+        prefs.putUInt("lastDayRst", lastDayResetSec);
+        prefs.end();
     }
 
     void updatePrimeProgress() {
         if (patchState == PatchState::PRIMING) {
-            primeProgress += 20;
+            primeProgress += 40;
+            Serial.print("[PRIME] progress=");
+            Serial.println(primeProgress);
             if (primeProgress >= 240) {
                 setPatchState(PatchState::PRIMED);
                 primeProgress = 0;
@@ -599,10 +984,17 @@ private:
     }
 
     void sendStateNotification() {
-        if (!isSubscribed || !isConnected) return;
+        if (!isSubscribed || !isConnected) {
+            Serial.println("[STATE] skip: not subscribed or not connected");
+            return;
+        }
         std::vector<uint8_t> syncData = buildSynchronizeData();
+        Serial.print("[STATE] sending notification, state=");
+        Serial.print(getStateName(patchState));
+        Serial.print(" dataLen=");
+        Serial.println(syncData.size());
         sendNotificationPacket(syncData);
-        Logger::debug("发送状态通知, 状态=" + String(getStateName(patchState)));
+        lastNotifiedState = patchState;  // 标记已通知, 避免 update() 重复发送
     }
 
     void sendPingHeartbeat() {
@@ -635,7 +1027,17 @@ private:
     }
 
     void sendPeriodicNotification() {
-        if (currentBolus != nullptr) return;
+        if (currentBolus != nullptr) {
+            // 大剂量期间每 2 秒发送一次状态通知, 让 Trio 更新进度
+            static uint32_t lastBolusNotificationTime = 0;
+            uint32_t now = millis();
+            if (now - lastBolusNotificationTime >= 2000) {
+                lastBolusNotificationTime = now;
+                sendSynchronizeNotification();
+                Logger::info("[BOLUS] 进度通知: 已输送 " + String(currentBolus->delivered) + " / " + String(currentBolus->amount) + "U");
+            }
+            return;
+        }
         if (totalElapsedTime % 5 == 0) {
             sendSynchronizeNotification();
         }
@@ -646,6 +1048,7 @@ private:
         uint32_t now = millis();
         if (now - lastPrimeNotificationTime >= 500) {
             lastPrimeNotificationTime = now;
+            Serial.println("[PRIME] sending progress notification");
             sendSynchronizeNotification();
         }
     }
@@ -657,7 +1060,11 @@ private:
 
     std::vector<uint8_t> buildSynchronizeData() {
         std::vector<uint8_t> data;
-        data.push_back(static_cast<uint8_t>(patchState));
+        PatchState reportedState = patchState;
+        if (everActivated && static_cast<uint8_t>(reportedState) < static_cast<uint8_t>(PatchState::PRIMING)) {
+            reportedState = PatchState::EXPIRED;
+        }
+        data.push_back(static_cast<uint8_t>(reportedState));
 
         uint16_t fieldMask = 0;
         if (patchState == PatchState::SUSPENDED) {
@@ -804,15 +1211,6 @@ private:
             data.push_back(0);
         }
 
-        Logger::info("SYNC_DATA: state=" + String(getStateName(patchState)) +
-            " fieldMask=0x" + String(fieldMask, HEX) +
-            " patchId=" + String(patchId) +
-            " patchStartTime=" + String(patchStartTime) +
-            " basalSeq=" + String(basalSequence) +
-            " basalRate=" + String(currentBasalRate) +
-            " reservoir=" + String(reservoir) +
-            " size=" + String(data.size()));
-
         return data;
     }
 
@@ -850,84 +1248,159 @@ private:
 
         if (actualCount == 0) return;
 
+        // 按 5 分钟间隔拆分, 24h = 288 个 5 分钟段
+        const uint16_t INTERVAL_MIN = 5;
+        const uint16_t TOTAL_SLOTS = 288;
         uint32_t baseTime = millis();
-        uint32_t scheduleStartMs = 0;
 
-        for (uint16_t seg = 0; seg < 48; seg++) {
-            uint16_t segStartMin = seg * 30;
+        for (uint16_t slot = 0; slot < TOTAL_SLOTS; slot++) {
+            uint16_t slotStartMin = slot * INTERVAL_MIN;
             double rate = 0;
             for (int8_t e = (int8_t)actualCount - 1; e >= 0; e--) {
-                if (entries[e].startTimeMinutes <= segStartMin) {
+                if (entries[e].startTimeMinutes <= slotStartMin) {
                     rate = entries[e].rate;
                     break;
                 }
             }
 
-            if (rate <= 0) {
-                scheduleStartMs += 1800000;
-                continue;
-            }
+            if (rate <= 0) continue;
 
-            uint32_t segmentDurationMs = 1800000;
-            double totalU = rate * 0.5;
-            uint32_t numSteps = static_cast<uint32_t>(totalU / STEP_SIZE);
-            if (numSteps == 0) numSteps = 1;
-
-            uint32_t intervalMs = segmentDurationMs / numSteps;
-            for (uint32_t s = 0; s < numSteps; s++) {
-                uint32_t offset = (s * segmentDurationMs) / numSteps;
-                InsulinAction action;
-                action.executeTimeMs = baseTime + scheduleStartMs + offset;
-                action.stepAmount = min(STEP_SIZE, totalU - s * STEP_SIZE);
-                basalQueue.push_back(action);
-            }
-            scheduleStartMs += segmentDurationMs;
+            InsulinAction action;
+            action.executeTimeMs = baseTime + (uint32_t)slot * INTERVAL_MIN * 60000;
+            action.stepAmount = rate * INTERVAL_MIN / 60.0; // rate × 5min / 60min
+            basalQueue.push_back(action);
         }
-        Logger::info("基础率队列已构建: " + String(basalQueue.size()) + " steps");
+        Logger::info("基础率队列已构建: " + String(basalQueue.size()) + " steps (5min间隔)");
     }
 
     void buildTempBasalQueue(double rate, uint16_t durationMinutes) {
         tempBasalQueue.clear();
         tempBasalQueueIdx = 0;
 
-        double totalU = rate * durationMinutes / 60.0;
-        uint32_t numSteps = static_cast<uint32_t>(totalU / STEP_SIZE);
-        if (numSteps == 0) numSteps = 1;
-
-        uint32_t totalDurationMs = durationMinutes * 60 * 1000;
-        uint32_t intervalMs = totalDurationMs / numSteps;
+        // 按 5 分钟间隔拆分
+        const uint16_t INTERVAL_MIN = 5;
+        uint32_t numSlots = durationMinutes / INTERVAL_MIN;
+        if (numSlots == 0) numSlots = 1;
         uint32_t baseTime = millis();
 
-        for (uint32_t s = 0; s < numSteps; s++) {
+        for (uint32_t s = 0; s < numSlots; s++) {
             InsulinAction action;
-            action.executeTimeMs = baseTime + s * intervalMs;
-            action.stepAmount = min(STEP_SIZE, totalU - s * STEP_SIZE);
+            action.executeTimeMs = baseTime + s * INTERVAL_MIN * 60000;
+            action.stepAmount = rate * INTERVAL_MIN / 60.0;
             tempBasalQueue.push_back(action);
         }
-        Logger::info("临时基础率队列已构建: " + String(tempBasalQueue.size()) + " steps @ " + String(rate) + "U/hr x " + String(durationMinutes) + "min");
+        Logger::info("临时基础率队列已构建: " + String(tempBasalQueue.size()) + " steps (5min间隔) @ " + String(rate) + "U/hr x " + String(durationMinutes) + "min");
+    }
+
+    // void startGpioDelivery(double stepU, int stepCount) {
+    //     Logger::info("[DEBUG] startGpioDelivery: stepU=" + String(stepU) + "U, stepCount=" + String(stepCount));
+    //     if (stepCount < 1) return;
+        
+    //     gpioDeliveryStartMs = millis();
+    //     gpioRemainingSteps = stepCount;
+    //     gpioCurrentStep = 0;
+    //     gpioTotalSteps = stepCount;
+    //     Logger::info("GPIO 输注启动: " + String(stepU) + "U, " + String(stepCount) + " steps");
+    // }
+
+    void startGpioDelivery(double stepU, int stepCount) {
+        if (stepCount < 1) return;
+
+        // 防重入: 信号量保护, 确保任何时候只有一个输注线程
+        if (xSemaphoreTake(xSemaphore, 0) != pdTRUE) {
+            Logger::warning("[GPIO] 无法获取信号量, 正在输注中，本次请求被忽略");
+            return;
+        }
+
+        if (isDeliveryTaskRunning) {
+            xSemaphoreGive(xSemaphore);
+            Logger::warning("[GPIO] 上一笔输注线程尚未结束，忽略本次触发");
+            return;
+        }
+
+        isDeliveryTaskRunning = true;
+        gpioRemainingSteps = stepCount;
+
+        // GPIO 任务优先级必须低于 BLE 事件处理任务, 否则会抢占 BLE 导致断连。
+        // 用优先级 1 (低), 确保 Bluefruit 协议栈能正常处理连接事件。
+        BaseType_t taskCreated = xTaskCreate(gpioDeliveryTask, "PumpDelivery", 4096, this, 1, NULL);
+        
+        if (taskCreated != pdPASS) {
+            Logger::error("[GPIO] xTaskCreate 失败！无法创建输注线程");
+            isDeliveryTaskRunning = false;
+            xSemaphoreGive(xSemaphore);
+            return;
+        }
+        
+        Logger::info("GPIO 独立线程已派发: " + String(stepU) + "U, " + String(stepCount) + " steps");
+        xSemaphoreGive(xSemaphore);
+    }
+
+    void resetGpioState() {
+        gpioDeliveryStartMs = 0;
+        gpioRemainingSteps = 0;
+        gpioCurrentStep = 0;
+        gpioTotalSteps = 0;
+    }
+
+    bool isGpioDeliveryComplete() const {
+        return !isDeliveryTaskRunning;
     }
 
     void executeQueueAction(InsulinAction& action) {
-        digitalWrite(STEP_PIN, HIGH);
-        delayMicroseconds(500);
-        digitalWrite(STEP_PIN, LOW);
 
         double stepU = action.stepAmount;
-        reservoir = max(0.0, reservoir - stepU);
-        activeInsulin += stepU;
-        hourlyDelivered += stepU;
-        dailyDelivered += stepU;
+        int stepCount = static_cast<int>(round(stepU / STEP_SIZE));
+
+        Logger::info("[DEBUG] executeQueueAction called, stepU=" + String(stepU) + "U, stepCount=" + String(stepCount));
+
+        // 启动 GPIO 物理按键输注 (储药器已在 processDeliveryQueues section 3.3 扣除)
+        startGpioDelivery(stepU, stepCount);
     }
 
+    /**
+     * 处理输注队列 - 核心输注调度逻辑
+     *
+     * 本函数负责将基础率、临时基础率和大剂量的胰岛素请求统一调度,
+     * 并按步进电机最小步长 (STEP_SIZE) 进行重组后执行实际输注。
+     *
+     * 执行流程:
+     *   1. 将到期的临时基础率动作移入 bolusQueue
+     *   2. 将到期的基础率动作移入 bolusQueue
+     *   3. 汇总 bolusQueue 中所有动作, 按 STEP_SIZE 取整后执行 GPIO 输注
+     *   4. 处理大剂量进度追踪和完成通知
+     *
+     * 调用时机:
+     *   - 正常情况下每 5 分钟扫描一次
+     *   - 有活跃大剂量 (currentBolus != nullptr) 时立即执行
+     */
     void processDeliveryQueues() {
         uint32_t now = millis();
-        if (patchState != PatchState::ACTIVE && patchState != PatchState::ACTIVE_ALT) return;
+        // Logger::info("[DEBUG] processDeliveryQueues called, patchState=" + String(getStateName(patchState)) + 
+        //              ", currentBolus=" + String(currentBolus ? "yes" : "null") + 
+        //              ", bolusQueue.size=" + String(bolusQueue.size()));
+
+        if (patchState != PatchState::ACTIVE && patchState != PatchState::ACTIVE_ALT) {
+            // Logger::info("[DEBUG] patchState not ACTIVE, skipping delivery");
+            return;
+        }
 
         // 5分钟扫描一次；有活跃大剂量时立即执行
-        if (currentBolus == nullptr && now - lastDeliveryScanTime < 300000) return;
+        if (currentBolus == nullptr && now - lastDeliveryScanTime < 300000) {
+            // Logger::info("[DEBUG] Skipping delivery: no active bolus and 5min not elapsed");
+            return;
+        }
         lastDeliveryScanTime = now;
 
-        // Step 1: Consume temp basal queue - move due actions to bolusQueue
+        // GPIO 输注线程在运行中时，跳过队列处理（等待输注完成后由下次扫描执行）
+        if (isDeliveryTaskRunning) {
+            Logger::info("[DEBUG] GPIO 输注线程正在运行，跳过本次队列处理");
+            return;
+        }
+
+        // ===== Step 1: 消费临时基础率队列 =====
+        // 将已到期 (executeTimeMs <= now) 的临时基础率动作移入 bolusQueue,
+        // 由后续统一执行。临时基础率结束时清理状态并发送通知。
         if (tempBasalActive && tempBasalQueueIdx < tempBasalQueue.size()) {
             while (tempBasalQueueIdx < tempBasalQueue.size() && now >= tempBasalQueue[tempBasalQueueIdx].executeTimeMs) {
                 bolusQueue.push_back(tempBasalQueue[tempBasalQueueIdx]);
@@ -948,63 +1421,114 @@ private:
             }
         }
 
-        // Step 2: Consume basal queue - move due actions to bolusQueue
-        if (!basalSuspended && basalQueueIdx < basalQueue.size()) {
+        // ===== Step 2: 消费基础率队列 =====
+        // 临时基础率优先级高于基础率, tempBasalActive 时不消费 basalQueue
+        if (!basalSuspended && !tempBasalActive && basalQueueIdx < basalQueue.size()) {
             while (basalQueueIdx < basalQueue.size() && now >= basalQueue[basalQueueIdx].executeTimeMs) {
                 bolusQueue.push_back(basalQueue[basalQueueIdx]);
                 basalQueueIdx++;
             }
         }
 
-        // Step 3: Process bolusQueue - sum all, apply step compensation, execute
+        // ===== Step 3: 处理 bolusQueue - 区分 bolus 和 basal =====
         if (!bolusQueue.empty()) {
-            double sum = 0;
+            // 3.1 汇总所有待输注量 (含 stepCarryOver)
+            double sum = stepCarryOver;
             for (const auto& action : bolusQueue) {
                 sum += action.stepAmount;
             }
             bolusQueue.clear();
+            stepCarryOver = 0;
+            Logger::info("[DEBUG] bolusQueue sum=" + String(sum) + "U (含carryOver)");
 
-            // Step compensation: round sum to nearest STEP_SIZE boundary
-            double remainder = fmod(sum, STEP_SIZE);
-            if (remainder < 0) remainder += STEP_SIZE;
-
-            double deliverAmount;
-            double carryOver;
-            if (remainder >= STEP_SIZE / 2.0) {
-                deliverAmount = sum + (STEP_SIZE - remainder);
-                carryOver = remainder - STEP_SIZE;
-            } else {
-                deliverAmount = sum - remainder;
-                carryOver = remainder;
+            // 3.2 步进补偿: 向下取整到 STEP_SIZE 边界 (只少打, 绝不多打)
+            // 安全原则: 输注泵宁可少打可补, 不可超打。carryOver 恒 >= 0, 表示"欠"的胰岛素,
+            // 下次累积到 >= STEP_SIZE 时补打。保持守恒: sum == deliverAmount + stepCarryOver。
+            double deliverAmount = floor(sum / STEP_SIZE) * STEP_SIZE;
+            if (deliverAmount < 0) deliverAmount = 0;  // 防御: sum 为负时不打
+            stepCarryOver = sum - deliverAmount;        // 恒 >= 0, 范围 [0, STEP_SIZE)
+            // 硬上限保护: carryOver 不允许超过 CARRYOVER_MAX。
+            // 若 sum 本身超过 2U 却因故无法取整输注 (例如长期撞储药器/配额上限),
+            // 累积的欠债超过 2U 时直接丢弃超额, 宁可少打也不在配额恢复时一次性补打出过量。
+            if (stepCarryOver > CARRYOVER_MAX) {
+                Logger::warning("[安全] stepCarryOver=" + String(stepCarryOver) + "U 超过上限 " + String(CARRYOVER_MAX) + "U, 丢弃超额");
+                stepCarryOver = CARRYOVER_MAX;
             }
+            Logger::info("[DEBUG] deliverAmount=" + String(deliverAmount) + "U, stepCarryOver=" + String(stepCarryOver) + "U (floor)");
 
+            // 3.3 安全检查: 限制单次输注量不超过储药器余量和小时/日最大量
+            // 关键: 截断后必须重新向下取整到 STEP_SIZE, 否则 deliverAmount 不是 0.5U 的倍数,
+            // 会导致 executeQueueAction 的 stepCount=round(... ) 与账面不一致 (账面记 0.3U, GPIO 实打 0.5U)。
+            // 被截断/取整掉的差额全部补回 stepCarryOver, 保持 sum == delivered + carryOver 不破。
             if (deliverAmount > 0.001) {
-                InsulinAction action;
-                action.stepAmount = deliverAmount;
-                executeQueueAction(action);
+                double capped = deliverAmount;
+                if (capped > reservoir) {
+                    Logger::warning("[安全] 输注量 " + String(capped) + "U 超过储药器余量 " + String(reservoir) + "U, 截断");
+                    capped = reservoir;
+                }
+                double dailyRemaining = dailyMaxInsulin - dailyDelivered;
+                if (capped > dailyRemaining) {
+                    Logger::warning("[安全] 输注量 " + String(capped) + "U 超过日剩余配额 " + String(dailyRemaining) + "U, 截断");
+                    capped = dailyRemaining;
+                }
+                double hourlyRemaining = hourlyMaxInsulin - hourlyDelivered;
+                if (capped > hourlyRemaining) {
+                    Logger::warning("[安全] 输注量 " + String(capped) + "U 超过小时剩余配额 " + String(hourlyRemaining) + "U, 截断");
+                    capped = hourlyRemaining;
+                }
 
-                if (currentBolus) {
-                    double bolusRemaining = currentBolus->amount - currentBolus->delivered;
-                    double bolusPortion = min(bolusRemaining, deliverAmount);
-                    currentBolus->delivered += bolusPortion;
-                    if (currentBolus->delivered >= currentBolus->amount - 0.001) {
-                        double finalDelivered = currentBolus->amount;
-                        bolusHistory.push_back(*currentBolus);
-                        Logger::info("大剂量输送完成: " + String(finalDelivered) + "U");
-                        sendStateNotification();
-                        delete currentBolus;
-                        currentBolus = nullptr;
-                        bolusDeliveryProgress = 0;
-                        lastReportedBolusProgress = 0;
+                // 截断后再向下取整到 STEP_SIZE, 保证 GPIO 步数与账面完全一致
+                double finalDeliver = floor(capped / STEP_SIZE) * STEP_SIZE;
+                if (finalDeliver < 0) finalDeliver = 0;
+                // 截断 + 二次取整掉的部分补回 carryOver (下次补打), 不丢失
+                stepCarryOver += (deliverAmount - finalDeliver);
+                deliverAmount = finalDeliver;
+                // 二次封顶: 截断回补可能使 carryOver 超过 CARRYOVER_MAX, 超额丢弃防止配额恢复时过量补打
+                if (stepCarryOver > CARRYOVER_MAX) {
+                    Logger::warning("[安全] 截断后 stepCarryOver=" + String(stepCarryOver) + "U 超过上限 " + String(CARRYOVER_MAX) + "U, 丢弃超额");
+                    stepCarryOver = CARRYOVER_MAX;
+                }
+
+                if (deliverAmount > 0.001) {
+                    reservoir = max(0.0, reservoir - deliverAmount);
+                    activeInsulin += deliverAmount;
+                    hourlyDelivered += deliverAmount;
+                    dailyDelivered += deliverAmount;
+                    Logger::info("输注记录, 储药器余量: " + String(reservoir) + "U");
+
+                    if (currentBolus != nullptr) {
+                        InsulinAction action;
+                        action.stepAmount = deliverAmount;
+                        executeQueueAction(action);
+                    } else {
+                        Logger::info("[BASAL] 基础率输注 " + String(deliverAmount) + "U (软件记录, 无GPIO)");
                     }
+                } else {
+                    Logger::info("[DEBUG] 截断+取整后本次不输注, 全部转入 carryOver=" + String(stepCarryOver) + "U");
                 }
             }
+            // 持久化统计数据, 防止重启丢失
+            persistStats();
+            // stepCarryOver 独立保存, 不放入 bolusQueue, 不会被 clear() 丢失
+        }
 
-            if (fabs(carryOver) > 0.001) {
-                InsulinAction carryAction;
-                carryAction.stepAmount = carryOver;
-                bolusQueue.push_back(carryAction);
-            }
+        // 3.6 大剂量完成检查
+        // handleSetBolusRequest 已返回成功给 Trio, 必须通知 Trio 完成
+        // 否则进度条会一直卡住
+        // carryOver 留在 bolusQueue 里等下次累积到 STEP_SIZE 再输注
+        if (currentBolus && isGpioDeliveryComplete()) {
+            Logger::info("大剂量完成: 通知Trio已完成 (carryOver留在队列累积)");
+            currentBolus->delivered = currentBolus->amount;
+            bolusHistory.push_back(*currentBolus);
+            sendStateNotification();
+            sendSynchronizeNotification();
+            delete currentBolus;
+            currentBolus = nullptr;
+            bolusDeliveryProgress = 0;
+            lastReportedBolusProgress = 0;
+            // 不清 bolusQueue, carryOver 留着下次累积
+            bolusQueueIdx = 0;
+            resetGpioState();
         }
     }
 
@@ -1026,6 +1550,13 @@ private:
         extern M640GPumpSimulator* gSimulator;
         if (gSimulator) {
             gSimulator->handleBleDisconnect();
+        }
+    }
+
+    static void handleSubscribeStatic(bool subscribed) {
+        extern M640GPumpSimulator* gSimulator;
+        if (gSimulator) {
+            gSimulator->handleSubscribe(subscribed);
         }
     }
 
@@ -1145,7 +1676,9 @@ private:
             Serial.println("");
             connectionTracker.onConnect();
             Logger::info("客户端已订阅通知");
-            sendStateNotification();
+            // 不主动发送状态通知 — Trio 期望先发 AUTH_REQ 认证,
+            // 认证前收到通知会导致 Trio 跳过 PRIME 直接 ACTIVATE。
+            // 状态通知会在 SYNCHRONIZE 流程中按需发送。
         } else {
             Serial.println("");
             Serial.println("----------------------------------------");
@@ -1165,11 +1698,10 @@ private:
         Serial.println("");
         Logger::info("========== BLE 客户端已连接 ==========");
 
-        if (gattServer.advertisingSuspended) {
-            Logger::info("广播暂停期间收到连接, 拒绝并断开");
-            gattServer.disconnectAll();
-            return;
-        }
+        // 不再检查 advertisingSuspended 拒绝连接:
+        // 原逻辑每次断开都设 advertisingSuspended=true, iOS 用缓存 peripheral 重连时
+        // 会被拒绝, 断开后又设 true, 形成死循环, 导致永远连不上。
+        // advertisingSuspended 现在仅用于控制是否广播, 不阻止已建立的连接。
 
         isConnected = true;
         lastActivityTime = millis();
@@ -1194,9 +1726,15 @@ private:
         currentCmdType = 0;
         connectionTracker.onDisconnect("BLE 断开");
 
-        gattServer.advertisingSuspended = true;
-        advertisingResumeTime = millis() + 10000;
-        Logger::info("BLE广播已暂停10秒, 防止客户端自动重连");
+        // 不再每次断开都暂停广播:
+        // 原逻辑会导致 iOS 自动重连时被拒绝 (handleBleConnect 已移除拒绝逻辑),
+        // 但暂停广播仍会导致 iOS 扫描找不到设备。
+        // 广播暂停仅在 pendingBleDisconnect (主动停止 patch) 时设置, 那里是永久暂停。
+        // 正常断开后立即恢复广播, 允许 iOS 重连。
+        gattServer.advertisingSuspended = false;
+        advertisingResumeTime = 0;
+        gattServer.startAdvertising();
+        Logger::info("BLE断开, 已恢复广播等待重连");
     }
 
     void processCompleteCommand(const uint8_t* data, uint8_t len) {
@@ -1341,44 +1879,6 @@ private:
 
         Logger::info("认证成功!");
 
-        if (patchState == PatchState::STOPPED || patchState == PatchState::EXPIRED ||
-            patchState == PatchState::OCCLUSION || patchState == PatchState::RESERVOIR_EMPTY ||
-            patchState == PatchState::PATCH_FAULT || patchState == PatchState::PATCH_FAULT2 ||
-            patchState == PatchState::BASE_FAULT || patchState == PatchState::BATTERY_OUT ||
-            patchState == PatchState::NO_CALIBRATION) {
-            Logger::info("检测到终态: " + String(getStateName(patchState)) + ", 重置为FILLED以允许新连接");
-            patchState = PatchState::FILLED;
-        }
-
-        if (!everActivated || patchId == 0xFFFF || patchId == 0) {
-            Logger::info("AUTH: 重置关键状态变量 (patchId=" + String(patchId) + " everActivated=" + String(everActivated) + ")");
-        }
-        everActivated = false;
-        patchId = 0;
-        patchStartTime = 0;
-        totalElapsedTime = 0;
-        primeProgress = 0;
-        reservoir = MAX_RESERVOIR;
-        activeInsulin = 0;
-        hourlyDelivered = 0;
-        dailyDelivered = 0;
-        basalSequence = 0;
-        patchStateDirty = true;
-        Preferences metaPrefs;
-        metaPrefs.begin("pumpMeta", false);
-        metaPrefs.remove("activated");
-        metaPrefs.end();
-
-        PatchState targetState = patchState;
-        patchState = PatchState::STOPPED;
-        std::vector<uint8_t> stoppedData = buildSynchronizeData();
-        sendNotificationPacket(stoppedData);
-        Logger::info("AUTH: 发送STOPPED通知以清除Android端patchPrimed标记");
-        delay(100);
-        patchState = targetState;
-        lastNotifiedState = PatchState::NONE;
-        Logger::info("AUTH: 状态已恢复为 " + String(getStateName(patchState)) + ", lastNotifiedState重置以强制重新通知");
-
         uint8_t responseData[5] = {0x02, DEVICE_TYPE, 1, 0, 0};
         sendResponse(CommandType::AUTH_REQ, seqNum, responseData, 5);
 
@@ -1459,8 +1959,10 @@ private:
         Logger::info("=== 预充请求 ===");
 
         if (patchState == PatchState::PRIMING) {
-            Logger::warning("已在预充中");
-            sendErrorResponse(CommandType::PRIME, BLEErrorCode::INVALID_STATE);
+            Logger::warning("已在预充中, 重置进度并继续");
+            primeProgress = 0;
+            sendResponse(CommandType::PRIME, seqNum, nullptr, 0);
+            sendStateNotification();
             return;
         }
 
@@ -1500,8 +2002,22 @@ private:
             }
 
             if (currentBolus != nullptr) {
-                Logger::warning("已有大剂量在执行中");
-                sendErrorResponse(CommandType::SET_BOLUS, BLEErrorCode::PUMP_BUSY);
+                // 如果当前 bolus 还有 carryOver 未输注, 允许新 bolus 叠加
+                // 否则拒绝 (正在 GPIO 输注中)
+                if (isDeliveryTaskRunning) {
+                    Logger::warning("已有大剂量在GPIO输注中");
+                    sendErrorResponse(CommandType::SET_BOLUS, BLEErrorCode::PUMP_BUSY);
+                    return;
+                }
+                // 叠加: 新量加入队列, 更新 currentBolus 的 amount
+                Logger::info("叠加新大剂量: " + String(amount) + "U 到已有 " + String(currentBolus->amount) + "U");
+                currentBolus->amount += amount;
+                InsulinAction bolusAction;
+                bolusAction.stepAmount = amount;
+                bolusQueue.push_back(bolusAction);
+                addRecord(1, amount, 0);
+                Logger::info("大剂量已叠加到队列: " + String(amount) + "U, 总计: " + String(currentBolus->amount) + "U");
+                sendResponse(CommandType::SET_BOLUS, seqNum, nullptr, 0);
                 return;
             }
 
@@ -1558,6 +2074,7 @@ private:
             currentBolus = nullptr;
             bolusDeliveryProgress = 0;
             lastReportedBolusProgress = 0;
+            // stepCarryOver 独立保存, bolusQueue 可安全清空
             bolusQueue.clear();
             bolusQueueIdx = 0;
             sendStateNotification();
@@ -1710,6 +2227,12 @@ private:
             uint8_t cause = data[4];
             uint8_t duration = data[5];
             Logger::info("暂停原因: " + String(cause) + ", 时长: " + String(duration) + "分钟");
+            if (duration > 0) {
+                suspendResumeTimeMs = millis() + (uint32_t)duration * 60000;
+                Logger::info("将在 " + String(duration) + " 分钟后自动恢复");
+            } else {
+                suspendResumeTimeMs = 0;
+            }
         }
 
         setPatchState(PatchState::SUSPENDED);
@@ -1723,6 +2246,7 @@ private:
             currentBolus = nullptr;
             bolusDeliveryProgress = 0;
             lastReportedBolusProgress = 0;
+            // stepCarryOver 独立保存, bolusQueue 可安全清空
             bolusQueue.clear();
             bolusQueueIdx = 0;
         }
@@ -1761,6 +2285,7 @@ private:
         simulatorState = SimulatorState::RUNNING;
         addRecord(4, 0, 0);
         basalSuspended = false;
+        suspendResumeTimeMs = 0;
         buildBasalQueue();
         Logger::info("泵已恢复 -> ACTIVE");
         sendResponse(CommandType::RESUME_PUMP, seqNum, nullptr, 0);
@@ -1889,13 +2414,17 @@ private:
             }
         }
 
-        setPatchState(PatchState::ACTIVE);
+        // 直接设置状态, 不在此处发通知 — setPatchState 会调 sendStateNotification,
+        // 紧接着 sendResponse 的 notify 会因 HVN 队列满而失败, 导致 Trio 收不到激活响应。
+        patchState = PatchState::ACTIVE;
         simulatorState = SimulatorState::RUNNING;
         everActivated = true;
         reservoir = MAX_RESERVOIR;
         totalElapsedTime = 0;
         hourlyDelivered = 0;
         dailyDelivered = 0;
+        lastHourResetSec = millis() / 1000;
+        lastDayResetSec = millis() / 1000;
         basalSequence = 0;
         basalSuspended = false;
         tempBasalActive = false;
@@ -1903,6 +2432,7 @@ private:
         basalQueueIdx = 0;
         tempBasalQueue.clear();
         tempBasalQueueIdx = 0;
+        // prime: 储药器换新, 但 stepCarryOver 刻意保留 (这是上一个 patch 欠的胰岛素, 不应凭空消失)
         bolusQueue.clear();
         bolusQueueIdx = 0;
         buildBasalQueue();
@@ -1962,6 +2492,8 @@ private:
         activeInsulin = 0;
         hourlyDelivered = 0;
         dailyDelivered = 0;
+        lastHourResetSec = millis() / 1000;
+        lastDayResetSec = millis() / 1000;
         basalSequence = 0;
         primeProgress = 0;
         lastNotifiedState = PatchState::NONE;
@@ -1989,6 +2521,7 @@ private:
         basalQueueIdx = 0;
         tempBasalQueue.clear();
         tempBasalQueueIdx = 0;
+        // stop patch: stepCarryOver 刻意保留 (这是本贴欠的胰岛素统计, 不应凭空消失, 保留用于对账)
         bolusQueue.clear();
         bolusQueueIdx = 0;
         basalSuspended = false;
@@ -2097,28 +2630,23 @@ private:
 
     void sendResponse(CommandType cmdType, uint8_t seqNum, const uint8_t* data, uint8_t dataLen) {
         uint8_t totalContentLen = 2 + dataLen;
-
-        uint8_t header[4] = {
-            static_cast<uint8_t>(totalContentLen + 5),
-            static_cast<uint8_t>(cmdType),
-            seqNum,
-            0
-        };
+        uint8_t totalPacketLen = totalContentLen + 6;
 
         uint8_t packet[256];
-        memcpy(packet, header, 4);
+        packet[0] = static_cast<uint8_t>(totalContentLen + 5);
+        packet[1] = static_cast<uint8_t>(cmdType);
+        packet[2] = seqNum;
+        packet[3] = 0;
         packet[4] = 0;
         packet[5] = 0;
         if (dataLen > 0) {
             memcpy(packet + 6, data, dataLen);
         }
-
-        uint8_t crc = crc8Calculate(packet, totalContentLen + 4);
-        packet[totalContentLen + 4] = crc;
+        packet[totalContentLen + 4] = crc8Calculate(packet, totalContentLen + 4);
         packet[totalContentLen + 5] = 0;
 
-        Logger::hexDump("TX", "-->", packet, totalContentLen + 6);
-        gattServer.sendResponse(packet, totalContentLen + 6);
+        Logger::hexDump("TX", "-->", packet, totalPacketLen);
+        gattServer.sendResponse(packet, totalPacketLen);
     }
 
     void sendErrorResponse(CommandType cmdType, uint16_t errorCode) {
@@ -2180,7 +2708,104 @@ private:
     }
 };
 
+
 M640GPumpSimulator* gSimulator = nullptr;
+
+// 5000 wait
+// 200 1000 第一步：唤醒屏幕 (短按)
+// 2000 2000 第二步：触发进入声响大剂量模式 (长按)
+// 400 600 loop
+// 3000 输入完毕后，等一下再确认
+// 4000 3000*steps 第四步：第一次长按确认（泵会回放步数声音）
+// 2000 第五步：第二次长按确认（真正开始推药）
+
+// 独立线程里的同步输注任务
+void gpioDeliveryTask(void *parameter) {
+    M640GPumpSimulator* simulator = static_cast<M640GPumpSimulator*>(parameter);
+
+    // 上锁读取步数
+    xSemaphoreTake(simulator->xSemaphore, portMAX_DELAY);
+    int steps = simulator->gpioRemainingSteps;
+    xSemaphoreGive(simulator->xSemaphore);
+
+    if (steps <= 0) {
+        Logger::warning("[Task] 步数为0，跳过输注");
+        goto finish;
+    }
+
+    Logger::info("[Task] 独立输注线程启动, steps=" + String(steps));
+
+// ==================== 修改后的 TS5A3166 声音大剂量物理敲击时序 ====================
+    // steps = 10; // 举例：输入 10 步
+
+    // 1. 唤醒屏幕 / 进入界面 (第一次短按)
+    Serial.println(">>> 1. 短按唤醒/进入声音大剂量...");
+    // digitalWrite(STEP_PIN, HIGH); // 高电平：按下
+    // delay(140);                   // TS5A3166 纯净信号，140ms 稳定骗过消抖
+    // digitalWrite(STEP_PIN, LOW);  // 低电平：松开
+    // delay(1000);                  // 等待屏幕或界面完全加载
+
+    // 2. 触发进入模式 (长按 2 秒)
+    Serial.println(">>> 2. 长按触发模式...");
+    digitalWrite(STEP_PIN, HIGH); // 高电平：按下
+    safeDelay(2000);              // 持续稳定按下 2 秒
+    digitalWrite(STEP_PIN, LOW);  // 低电平：松开
+    safeDelay(1500);              // 等待泵发出准备就绪的提示音
+
+    // 3. 循环输入步数 (核心修改：拉长按下与松开时间)
+    Serial.println(">>> 3. 开始循环敲击步数...");
+    for (int i = 1; i <= steps; i++) {
+        digitalWrite(STEP_PIN, HIGH); // 高电平：按下
+        safeDelay(500);               // 按下维持 500ms
+        digitalWrite(STEP_PIN, LOW);  // 低电平：松开
+        safeDelay(500);               // 松开维持 500ms
+
+        // 每完成一步, 更新 currentBolus->delivered 进度, 让 iOS 看到进度变化
+        // 否则进度一直卡在 0.00, iOS 会超时断开连接
+        xSemaphoreTake(simulator->xSemaphore, portMAX_DELAY);
+        if (simulator->currentBolus != nullptr) {
+            double newDelivered = i * STEP_SIZE;
+            if (newDelivered > simulator->currentBolus->amount) {
+                newDelivered = simulator->currentBolus->amount;
+            }
+            simulator->currentBolus->delivered = newDelivered;
+        }
+        xSemaphoreGive(simulator->xSemaphore);
+    }
+    safeDelay(2000); // 步数输完后，稳一稳，准备确认
+
+    // 4. 第一次长按确认 (修正：电平和延时重新对齐)
+    Serial.println(">>> 4. 第一次长按确认输入的步数...");
+    digitalWrite(STEP_PIN, HIGH); // 高电平：按下
+    safeDelay(2500);              // 长按 2.5 秒触发确认
+    digitalWrite(STEP_PIN, LOW);  // 低电平：松开
+    
+    // 【关键等待】松开后，泵会“滴滴滴”把刚才输入的步数回放一遍，必须等它完全响完！
+    safeDelay(steps * 500);
+
+    // 5. 第二次长按执行输注 (修正：电平和延时重新对齐)
+    Serial.println(">>> 5. 第二次长按最终执行输注...");
+    digitalWrite(STEP_PIN, HIGH); // 高电平：按下
+    safeDelay(2500);              // 长按 2.5 秒触发输注
+    digitalWrite(STEP_PIN, LOW);  // 低电平：松开（彻底完成）
+    
+    Serial.println(">>> [SUCCESS] 声音大剂量物理时序模拟完毕！");
+
+finish:
+    // 确保 GPIO 安全: LOW = 断开, 恢复高驱动输出模式
+    digitalWrite(STEP_PIN, LOW);
+    pinMode(STEP_PIN, OUTPUT_H0H1);
+
+    // 上锁标记任务结束
+    xSemaphoreTake(simulator->xSemaphore, portMAX_DELAY);
+    simulator->isDeliveryTaskRunning = false;
+    xSemaphoreGive(simulator->xSemaphore);
+
+    vTaskDelete(NULL);
+}
+
+
+#undef CHECK_TIMEOUT
 
 } // namespace M640GKit
 

@@ -127,6 +127,13 @@ public:
     }
 };
 
-} // namespace M640GKit
+}  // namespace M640GKit
+
+// C++14 兼容: static constexpr 数组成员需要类外定义 (C++17 隐式 inline, 不需要)
+// Adafruit nRF52 默认 C++14, 若缺少此定义会报 undefined reference 链接错误
+#if __cplusplus < 201703L
+constexpr uint8_t M640GKit::Crypto::RIJNDAEL_S_BOX[256];
+constexpr uint8_t M640GKit::Crypto::RIJNDAEL_INVERSE_S_BOX[256];
+#endif
 
 #endif // M640G_CRYPTO_H
